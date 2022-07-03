@@ -1,7 +1,7 @@
 use lalrpop_util::lalrpop_mod;
 use std::io::{self, Write};
 
-use crate::main::ExprParser;
+use crate::main::SParser;
 
 lalrpop_mod!(pub main);
 
@@ -12,10 +12,13 @@ fn main() {
     io::stdin().read_line(&mut expr).expect("Fail to read expr from stdin");
     let expr = expr.trim();
 
-    let result = ExprParser::new().parse(expr);
+    let result = SParser::new().parse(expr);
     match result {
-        Ok(ast) => println!("{:#?}", ast),
-        Err(e)=> println!("{:#?}",e),
+        Ok(ast) => {
+            println!("AST result:");
+            println!("{:#?}", ast)
+        },
+        Err(e)=> println!("{}",e),
     }
 
 }
