@@ -1,0 +1,264 @@
+use std::str::FromStr;
+use aalang::ast::{Expr, Opcode, FunctionDef, Block, Stmt, Decl, ProgramElem};
+
+grammar;
+
+
+// lexer
+
+Float  : f64    = <s:r"[0-9]+((\.[0-9]+)([eE][0-9]+)?|([eE][0-9]+))">   => f64::from_str(s).unwrap();
+Int    : i64    = <s:r"[0-9]+">                                         => i64::from_str(s).unwrap();
+Str    : String = <s:r#""[^"]*""#>                                      => s[1..s.len()-1].to_string();
+BoolTrue        = "true";
+BoolFalse       = "false";
+
+Identifer:String= <s:r"[a-zA-Z_][a-zA-Z0-9_]*"> => s.to_owned();
+
+
+KwdFunctionDef  = "fn";
+KwdStructDef    = "class";
+KwdRVDef        = "->";
+KwdRet          = "return";
+
+KwdModPublic    = "pub";
+KwdModPrivate   = "priv";
+
+KwdLazy         = "lazy";
+KwdPure         = "pure";
+
+KwdVar          = "var";
+KwdVal          = "val";
+
+KwdModule       = "mod";
+KwdImport       = "import";
+
+KwdTypeInt      = "int";
+KwdTypeFloat    = "float";
+KwdTypeUnit     = "unit";
+KwdTypeAuto     = "auto";
+
+KwdAnd          = "and";
+KwdOr           = "or";
+
+KwdPatternMatch = "match";
+
+
+// parser
+
+//---------------
+// macros tools
+//---------------
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+// ---------
+// defition
+// ---------
+pub AALang = ProgramElems;
+
+
+// -----------
+// misc
+// -----------
+
+ProgramElems: Vec<ProgramElem> = {
+    <v:ProgramElem*> => v,
+};
+
+ProgramElem: ProgramElem = {
+    <FuncDef> => ProgramElem::FuncDef(<>),
+    <VarDecl> => ProgramElem::VarDef(<>),
+    <ValDecl> => ProgramElem::VarDef(<>),
+};
+
+TypeIdentifer:String = {
+    Identifer,
+    <KwdTypeInt>    => String::from(<>),
+    <KwdTypeFloat>  => String::from(<>),
+    <KwdTypeUnit>   => String::from(<>),
+    <KwdTypeAuto>   => String::from(<>),
+};
+
+PrimaryExpr = LogicOrExpr;
+
+FuncDef: FunctionDef = {
+    KwdFunctionDef <name:Identifer> "(" ")" <b:Block> => {
+        FunctionDef{
+            return_type: String::from("unit"),
+            name:name,
+            block: b
+        }
+    },
+    KwdFunctionDef <name:Identifer> "(" ")" KwdRVDef <rv:TypeIdentifer> <b:Block> => {
+        FunctionDef{
+            return_type: rv,
+            name:name,
+            block: b
+        }
+    },
+};
+
+Block: Block = {
+    "{" <stmts:Stmt*> "}" => Block{<>},
+};
+
+//---------
+// Stmt
+//---------
+Stmt = {
+    RetStmt,
+    AssignStmt,
+    ExprStmt,
+    VarDeclStmt,
+    ValDeclStmt,
+};
+
+RetStmt: Stmt = {
+    KwdRet <expr:PrimaryExpr> ";" => Stmt::ReturnStmt(<>),
+};
+
+ExprStmt: Stmt = {
+    <expr:PrimaryExpr> ";"  => Stmt::ExprStmt(expr),
+};
+
+VarDeclStmt: Stmt = <VarDecl> => Stmt::DeclStmt(<>);
+ValDeclStmt: Stmt = <ValDecl> => Stmt::DeclStmt(<>);
+
+
+VarDecl: Decl = <d:DeclStmt<KwdVar>> => Decl::Var{
+    name:d.0,
+    value: d.1,
+    decl_type: d.2,
+};
+
+ValDecl: Decl = <d:DeclStmt<KwdVal>> => Decl::Val{
+    name:d.0,
+    value: d.1,
+    decl_type: d.2,
+};
+
+DeclStmt<K> : (String, Box<Expr>, String) = {
+    K <var:Identifer> ":" <t:TypeIdentifer> "=" <expr:PrimaryExpr> ";"=> (var, expr, t),
+    K <var:Identifer> "=" <expr:PrimaryExpr> ";" => (var, expr, String::from("auto")),
+};
+
+AssignStmt: Stmt = {
+    <var:Identifer> "=" <expr:PrimaryExpr> ";" => Stmt::AssignStmt{
+        name: var,
+        value: expr,
+    },
+};
+
+//-----------------
+// symbol expr below 
+//-----------------
+
+LogicOrExpr: Box<Expr> = {
+    LogicOrExpr LogicOrExprOp LogicAndExpr => Box::new(Expr::OpExpr(<>)),
+    LogicAndExpr,
+};
+
+LogicOrExprOp : Opcode ={
+    "||"    => Opcode::Or,
+    "or"    => Opcode::Or,
+};
+
+LogicAndExpr: Box<Expr> = {
+    LogicAndExpr LogicAndExprOp LogicBaseExpr => Box::new(Expr::OpExpr(<>)),
+    LogicBaseExpr,
+};
+
+LogicAndExprOp: Opcode = {
+    "&&"    => Opcode::And,
+    KwdAnd  => Opcode::And,
+};
+
+
+LogicBaseExpr: Box<Expr> = {
+    LogicBaseExpr LogicBaseExprOp TermExpr => Box::new(Expr::OpExpr(<>)),
+    TermExpr,
+};
+
+LogicBaseExprOp: Opcode = {
+    "=="    => Opcode::Eq,
+    ">"     => Opcode::Gt,
+    "<"     => Opcode::Lt,
+    ">="    => Opcode::Ge,
+    "<="    => Opcode::Le,
+};
+
+
+TermExpr: Box<Expr> = {
+    TermExpr TermExprOp FactorExpr => Box::new(Expr::OpExpr(<>)),
+    FactorExpr,
+};
+
+
+TermExprOp: Opcode = {
+    "+"     => Opcode::Add,
+    "-"     => Opcode::Sub,
+    "+="     => Opcode::AddAssign,
+    "-="     => Opcode::SubAssign,
+};
+
+
+
+FactorExpr: Box<Expr> = {
+    FactorExpr FactorOp FactorShiftOpExpr => Box::new(Expr::OpExpr(<>)),
+    FactorShiftOpExpr,
+};
+
+FactorOp: Opcode = {
+    "*"     => Opcode::Mul,
+    "/"     => Opcode::Div,
+    "%"     => Opcode::Mod,
+    "**"    => Opcode::Pow,
+
+    "*="    => Opcode::MulAssign,
+    "/="    => Opcode::DivAssign,
+    "%="    => Opcode::ModAssign,
+};
+
+
+FactorShiftOpExpr: Box<Expr> = {
+    FactorShiftOpExpr FactorShiftOp FactorUnaryOpExpr => Box::new(Expr::OpExpr(<>)),
+    FactorUnaryOpExpr,
+};
+
+FactorShiftOp: Opcode = {
+    "<<" => Opcode::Lsh,
+    ">>" => Opcode::Rsh,
+    ">>>"=> Opcode::RshUnsigned,
+    "&"  => Opcode::BitAnd,
+    "|"  => Opcode::BitOr,
+    "^"  => Opcode::BitXor,
+};
+
+FactorUnaryOpExpr: Box<Expr> = {
+    FactorUnaryOp FactorBase => Box::new(Expr::UnaryOpExpr(<>)),
+    FactorBase,
+};
+
+FactorUnaryOp: Opcode = {
+    "~" => Opcode::BitNot,
+    "!" => Opcode::Not,
+    "-" => Opcode::Neg,
+}
+
+FactorBase: Box<Expr> = {
+    Float           => Box::new(Expr::Float(<>)),
+    Int             => Box::new(Expr::Int(<>)),
+    Str             => Box::new(Expr::Str(<>)),
+    <Identifer>   => Box::new(Expr::Identifer(<>)),
+    BoolTrue        => Box::new(Expr::Bool(true)),
+    BoolFalse       => Box::new(Expr::Bool(false)),
+    "(" <PrimaryExpr> ")",
+    <Block>           => Box::new(Expr::BlockExpr(<>)),
+};

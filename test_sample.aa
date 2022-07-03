@@ -1,0 +1,10 @@
+val foul = 114514;
+val pi:float = 3.14;
+
+fn main() -> int {
+    val a = -(1+1) >= (2*3-(3+2)<<2);
+    val closure = {
+        var multableVar="I can be changed";
+    };
+    return a;
+}

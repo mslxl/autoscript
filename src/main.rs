@@ -1,24 +1,20 @@
 use lalrpop_util::lalrpop_mod;
-use std::io::{self, Write};
+use std::fs;
 
-use crate::main::SParser;
-
-lalrpop_mod!(pub main);
+lalrpop_mod!(pub aalang);
+use crate::aalang::AALangParser;
 
 fn main() {
     print!("> ");
-    io::stdout().flush().expect("Fail to flush stdout");
-    let mut expr = String::new();
-    io::stdin().read_line(&mut expr).expect("Fail to read expr from stdin");
-    let expr = expr.trim();
+    let content = fs::read_to_string("test_sample.aa").expect("fail to read test_sample.aa file");
+    let code = content.trim();
 
-    let result = SParser::new().parse(expr);
+    let result = AALangParser::new().parse(code);
     match result {
         Ok(ast) => {
             println!("AST result:");
-            println!("{:#?}", ast)
+            println!("{:?}", ast)
         },
         Err(e)=> println!("{}",e),
     }
-
 }

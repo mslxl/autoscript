@@ -6,9 +6,49 @@ pub enum Expr {
     Identifer(String),
     Str(String),
     OpExpr(Box<Expr>, Opcode, Box<Expr>),
-    UnaryOpExpr(Opcode, Box<Expr>)
+    UnaryOpExpr(Opcode, Box<Expr>),
+    BlockExpr(Block),
 }
 
+#[derive(Debug)]
+pub enum Stmt {
+    ExprStmt(Box<Expr>),
+    AssignStmt { name: String, value: Box<Expr> },
+    DeclStmt(Decl),
+    ReturnStmt(Box<Expr>),
+}
+
+#[derive(Debug)]
+pub enum Decl {
+    Val {
+        name: String,
+        value: Box<Expr>,
+        decl_type: String,
+    },
+    Var {
+        name: String,
+        value: Box<Expr>,
+        decl_type: String,
+    },
+}
+
+#[derive(Debug)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+}
+
+#[derive(Debug)]
+pub enum ProgramElem {
+    VarDef(Decl),
+    FuncDef(FunctionDef),
+}
+
+#[derive(Debug)]
+pub struct FunctionDef {
+    pub return_type: String,
+    pub name: String,
+    pub block: Block,
+}
 
 #[derive(Debug)]
 pub enum Opcode {
@@ -35,7 +75,6 @@ pub enum Opcode {
     Sub,
     AddAssign,
     SubAssign,
-
 
     Eq,
     Lt,
