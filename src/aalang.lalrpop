@@ -20,6 +20,10 @@ KwdStructDef    = "class";
 KwdRVDef        = "->";
 KwdRet          = "return";
 
+KwdIf           = "if";
+KwdElseIf       = "elif";
+KwdElse         = "else";
+
 KwdModPublic    = "pub";
 KwdModPrivate   = "priv";
 
@@ -64,19 +68,48 @@ Comma<T>: Vec<T> = { // (1)
 pub AALang = ProgramElems;
 
 
-// -----------
-// misc
-// -----------
-
-ProgramElems: Vec<ProgramElem> = {
-    <v:ProgramElem*> => v,
-};
+ProgramElems: Vec<ProgramElem> = <ProgramElem*>;
 
 ProgramElem: ProgramElem = {
     <FuncDef> => ProgramElem::FuncDef(<>),
     <VarDecl> => ProgramElem::VarDef(<>),
     <ValDecl> => ProgramElem::VarDef(<>),
 };
+
+// -----------
+// misc
+// -----------
+
+PrimaryExpr = {
+    <LogicOrExpr>,
+    <IfExpr>,
+};
+
+
+// -------------
+// if-elif-else
+// -------------
+
+MinIfBr: (Box<Expr>, Box<Expr>) ={
+    KwdIf "(" <cond:LogicOrExpr> ")" <b:Block> => (cond, Box::new(Expr::BlockExpr(b))),
+};
+
+MinElifBr: (Box<Expr>, Box<Expr>) = KwdElseIf "(" <cond:LogicOrExpr> ")" <b:Block> => (cond, Box::new(Expr::BlockExpr(b)));
+
+MinElseBr: Box<Expr> = KwdElse <Block> => Box::new(Expr::BlockExpr(<>));
+
+
+IfExpr: Box<Expr> = <m:MinIfBr> <eifs:MinElifBr*> <e:MinElseBr?> => {
+    Box::new(Expr::If{
+        main:m,
+        elif: eifs,
+        els: e,
+    })
+};
+
+// --------
+// function
+// --------
 
 TypeIdentifer:String = {
     Identifer,
@@ -85,8 +118,6 @@ TypeIdentifer:String = {
     <KwdTypeUnit>   => String::from(<>),
     <KwdTypeAuto>   => String::from(<>),
 };
-
-PrimaryExpr = LogicOrExpr;
 
 FuncDef: FunctionDef = {
     KwdFunctionDef <name:Identifer> "(" ")" <b:Block> => {
@@ -121,11 +152,12 @@ Stmt = {
 };
 
 RetStmt: Stmt = {
-    KwdRet <expr:PrimaryExpr> ";" => Stmt::ReturnStmt(<>),
+    KwdRet <expr:PrimaryExpr?> ";" => Stmt::ReturnStmt(<>),
 };
 
 ExprStmt: Stmt = {
-    <expr:PrimaryExpr> ";"  => Stmt::ExprStmt(expr),
+    <expr:LogicOrExpr> ";"  => Stmt::ExprStmt(expr),
+    <expr:IfExpr>           => Stmt::ExprStmt(expr),
 };
 
 VarDeclStmt: Stmt = <VarDecl> => Stmt::DeclStmt(<>);
@@ -260,5 +292,5 @@ FactorBase: Box<Expr> = {
     BoolTrue        => Box::new(Expr::Bool(true)),
     BoolFalse       => Box::new(Expr::Bool(false)),
     "(" <PrimaryExpr> ")",
-    <Block>           => Box::new(Expr::BlockExpr(<>)),
+    <Block>         => Box::new(Expr::BlockExpr(<>)),
 };

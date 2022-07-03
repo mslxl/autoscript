@@ -8,6 +8,11 @@ pub enum Expr {
     OpExpr(Box<Expr>, Opcode, Box<Expr>),
     UnaryOpExpr(Opcode, Box<Expr>),
     BlockExpr(Block),
+    If{
+        main: (Box<Expr>, Box<Expr>),
+        elif:Vec<(Box<Expr>, Box<Expr>)>,
+        els: Option<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]
@@ -15,7 +20,7 @@ pub enum Stmt {
     ExprStmt(Box<Expr>),
     AssignStmt { name: String, value: Box<Expr> },
     DeclStmt(Decl),
-    ReturnStmt(Box<Expr>),
+    ReturnStmt(Option<Box<Expr>>),
 }
 
 #[derive(Debug)]
