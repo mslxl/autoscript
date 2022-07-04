@@ -51,8 +51,5 @@ fn main() -> int {
     }
 
     val a = -(1+1) >= (2*3-(3+2)<<2);
-    val closure = {
-        var multableVar="I can be changed";
-    };
     return if(true){1;}else{0;};
 }

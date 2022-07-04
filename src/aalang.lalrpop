@@ -327,5 +327,4 @@ FactorBase: Box<Expr> = {
     BoolTrue        => Box::new(Expr::Bool(true)),
     BoolFalse       => Box::new(Expr::Bool(false)),
     "(" <PrimaryExpr> ")",
-    <Block>         => Box::new(Expr::BlockExpr(<>)),
 };
