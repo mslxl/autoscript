@@ -13,7 +13,7 @@ fn main() {
     match result {
         Ok(ast) => {
             println!("AST result:");
-            println!("{:?}", ast)
+            println!("{:#?}", ast)
         },
         Err(e)=> println!("{}",e),
     }

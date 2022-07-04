@@ -1,9 +1,22 @@
+import fs;
 val foul = 114514;
 val pi:float = 3.14;
 
 fn main() -> int {
     if(1 > 2) {
         1+1;
+    }
+
+    while(false){
+
+    }
+
+    repeat{
+
+    }until(over_of_world);
+
+    for(a in b){
+       
     }
 
     if(2>3) {

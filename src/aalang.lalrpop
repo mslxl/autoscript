@@ -24,6 +24,14 @@ KwdIf           = "if";
 KwdElseIf       = "elif";
 KwdElse         = "else";
 
+KwdRepeat       = "repeat";
+KwdUntil        = "until";
+
+KwdWhile        = "while";
+KwdFor          = "for";
+
+KwdIn           = "in";
+
 KwdModPublic    = "pub";
 KwdModPrivate   = "priv";
 
@@ -74,6 +82,7 @@ ProgramElem: ProgramElem = {
     <FuncDef> => ProgramElem::FuncDef(<>),
     <VarDecl> => ProgramElem::VarDef(<>),
     <ValDecl> => ProgramElem::VarDef(<>),
+    KwdImport <i:Identifer> ";" => ProgramElem::Import(i),
 };
 
 // -----------
@@ -105,6 +114,29 @@ IfExpr: Box<Expr> = <m:MinIfBr> <eifs:MinElifBr*> <e:MinElseBr?> => {
         elif: eifs,
         els: e,
     })
+};
+
+// -----------
+// repeat-until
+// -----------
+
+RepeatStmt: Stmt = {
+    KwdRepeat <b:Block> KwdUntil "(" <e:PrimaryExpr> ")" ";" => Stmt::RepeatUntilStmt(e, b),
+};
+
+// -------
+// while
+// -------
+WhileStmt: Stmt = {
+    KwdWhile "(" <e:PrimaryExpr> ")" <b:Block>  => Stmt::WhileStmt(<>),
+};
+
+// -------
+// for-each
+// -------
+
+ForEachStmt: Stmt = {
+    KwdFor "(" <id:Identifer> KwdIn <e:PrimaryExpr> ")" <b:Block>   => Stmt::ForEachStmt(<>),
 };
 
 // --------
@@ -149,6 +181,9 @@ Stmt = {
     ExprStmt,
     VarDeclStmt,
     ValDeclStmt,
+    RepeatStmt,
+    WhileStmt,
+    ForEachStmt,
 };
 
 RetStmt: Stmt = {

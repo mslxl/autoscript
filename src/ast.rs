@@ -20,6 +20,9 @@ pub enum Stmt {
     ExprStmt(Box<Expr>),
     AssignStmt { name: String, value: Box<Expr> },
     DeclStmt(Decl),
+    RepeatUntilStmt(Box<Expr>, Block),
+    WhileStmt(Box<Expr>, Block),
+    ForEachStmt(String, Box<Expr>, Block),
     ReturnStmt(Option<Box<Expr>>),
 }
 
@@ -45,6 +48,7 @@ pub struct Block {
 #[derive(Debug)]
 pub enum ProgramElem {
     VarDef(Decl),
+    Import(String),
     FuncDef(FunctionDef),
 }
 
