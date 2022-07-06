@@ -9,6 +9,7 @@ grammar;
 Float  : f64    = <s:r"[0-9]+((\.[0-9]+)([eE][0-9]+)?|([eE][0-9]+))">   => f64::from_str(s).unwrap();
 Int    : i64    = <s:r"[0-9]+">                                         => i64::from_str(s).unwrap();
 Str    : String = <s:r#""[^"]*""#>                                      => s[1..s.len()-1].to_string();
+Char   : char   = <s:r"'.'">                                           => s.chars().nth(1).unwrap();
 BoolTrue        = "true";
 BoolFalse       = "false";
 
@@ -46,6 +47,8 @@ KwdImport       = "import";
 
 KwdTypeInt      = "int";
 KwdTypeFloat    = "float";
+KwdTypeChar     = "char";
+KwdTypeBool     = "bool";
 KwdTypeUnit     = "unit";
 KwdTypeAuto     = "auto";
 
@@ -93,6 +96,7 @@ PrimaryExpr = {
     <LogicOrExpr>,
     <IfExpr>,
 };
+
 
 
 // -------------
@@ -147,6 +151,8 @@ TypeIdentifer:String = {
     Identifer,
     <KwdTypeInt>    => String::from(<>),
     <KwdTypeFloat>  => String::from(<>),
+    <KwdTypeChar>   => String::from(<>),
+    <KwdTypeBool>   => String::from(<>),
     <KwdTypeUnit>   => String::from(<>),
     <KwdTypeAuto>   => String::from(<>),
 };
@@ -170,6 +176,17 @@ FuncDef: FunctionDef = {
 
 Block: Block = {
     "{" <stmts:Stmt*> "}" => Block{<>},
+};
+
+// -------------
+// function call
+// -------------
+
+// todo
+FunctionCall: Box<Expr> = {
+    <name:Identifer> "(" ")" => Box::new(Expr::FunctionCall{
+        name: name,
+    }),
 };
 
 //---------
@@ -323,8 +340,10 @@ FactorBase: Box<Expr> = {
     Float           => Box::new(Expr::Float(<>)),
     Int             => Box::new(Expr::Int(<>)),
     Str             => Box::new(Expr::Str(<>)),
+    Char            => Box::new(Expr::Char(<>)),
     <Identifer>   => Box::new(Expr::Identifer(<>)),
     BoolTrue        => Box::new(Expr::Bool(true)),
     BoolFalse       => Box::new(Expr::Bool(false)),
+    FunctionCall,
     "(" <PrimaryExpr> ")",
 };

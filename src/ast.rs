@@ -4,7 +4,11 @@ pub enum Expr {
     Float(f64),
     Bool(bool),
     Identifer(String),
+    FunctionCall{
+        name:String
+    },
     Str(String),
+    Char(char),
     OpExpr(Box<Expr>, Opcode, Box<Expr>),
     UnaryOpExpr(Opcode, Box<Expr>),
     BlockExpr(Block),

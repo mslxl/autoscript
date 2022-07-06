@@ -1,6 +1,9 @@
 import fs;
 val foul = 114514;
 val pi:float = 3.14;
+val ch = 'a';
+
+val s = zero();
 
 fn main() -> int {
     if(1 > 2) {
