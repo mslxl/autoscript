@@ -90,6 +90,7 @@ impl CmdParser {
             suffix: RefCell::new(Vec::new()),
         }
     }
+    /// Add a specific option to parser
     pub fn option(&mut self, opt: CmdOption) {
         self.opts.push(Rc::new(opt));
         let ref_opt = self.opts.last().unwrap();
@@ -106,6 +107,7 @@ impl CmdParser {
         self.max_name_len = self.max_name_len.max(ref_opt.name.len())
     }
 
+    /// generate help text by options
     pub fn help_str(&self) -> String {
         let mut help = String::from(format!(
             "Usage: {} [OPTIONS]... <FILE>\n",
@@ -134,12 +136,17 @@ impl CmdParser {
         help
     }
 
+    /// insert value to &self.value after value's type be checked
+    /// 
+    /// it should only be called by parse method
     fn insert_value(
         &self,
         opt: &Rc<CmdOption>,
         value: &mut impl Iterator<Item = String>,
     ) -> Result<(), String> {
         let mut map = self.value.borrow_mut();
+
+        // type is None, deal it first since it needn't use next args
         if opt.value_type == CmdReceiveType::None {
             map.insert(RcStr(Rc::clone(&opt.name)), CmdReceiveValue::Bool(true));
             return Ok(());
@@ -153,6 +160,7 @@ impl CmdParser {
         }
         let value = value.unwrap();
 
+        // check type and insert
         match opt.value_type {
             CmdReceiveType::Bool => {
                 let v: bool = value
@@ -182,7 +190,7 @@ impl CmdParser {
                 );
                 Ok(())
             }
-            _ => panic!("Not supported"),
+            _ => panic!("Not supported"), // it never happed normally
         }
     }
 
