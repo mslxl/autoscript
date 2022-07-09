@@ -1,0 +1,134 @@
+use crate::ast::{Expr, Opcode, Loc, UnaryOpcode};
+
+grammar();
+match {
+    r"\s*" => { }, // The default whitespace skipping is disabled an `ignore pattern` is specified
+    r"//[^\n\r]*[\n\r]*" => { }, // Skip `// comments`
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },  // Skip `/* comments */`
+}else{
+    _
+}
+
+
+pub Program = Expr;
+
+Float  : f64    = r"[0-9]+((\.[0-9]+)([eE][0-9]+)?|([eE][0-9]+))"   => <>.parse().unwrap();
+Int    : i64    = r"[0-9]+"                                         => <>.parse().unwrap();
+Str    : String = <s:r#""[^"]*""#>                                  => s[1..s.len()-1].to_string();
+Char   : char   = r"'.'"                                            => <>.chars().nth(1).unwrap();
+BoolTrue:bool        = "true"                                            => true;
+BoolFalse:bool       = "false"                                           => false;
+Bool   : bool   = {
+    BoolTrue,
+    BoolFalse,
+};
+Identifier:String= r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.to_owned();
+
+Expr = {
+    LogicOrExpr
+};
+
+LogicOrExpr: Box<Expr> = {
+    <lhs:LogicOrExpr> <op:LogicOrExprOp> <rhs:LogicAndExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    LogicAndExpr,
+};
+
+LogicOrExprOp : Opcode ={
+    "||"    => Opcode::Or,
+    "or"    => Opcode::Or,
+};
+
+
+LogicAndExpr: Box<Expr> = {
+    <lhs:LogicAndExpr> <op:LogicAndExprOp> <rhs:CompareExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    CompareExpr,
+};
+
+LogicAndExprOp: Opcode = {
+    "&&"  => Opcode::And,
+    "and" => Opcode::And,
+}
+
+
+CompareExpr: Box<Expr> = {
+    <lhs:CompareExpr> <op:CompareExprOp> <rhs:TermExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    TermExpr,
+};
+
+CompareExprOp: Opcode = {
+    "=="    => Opcode::Eq,
+    ">"     => Opcode::Gt,
+    "<"     => Opcode::Lt,
+    ">="    => Opcode::Ge,
+    "<="    => Opcode::Le,
+};
+
+
+TermExpr: Box<Expr> = {
+    <lhs:TermExpr> <op:TermExprOp> <rhs:FactorExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    FactorExpr,
+};
+
+
+TermExprOp: Opcode = {
+    "+"     => Opcode::Add,
+    "-"     => Opcode::Sub,
+    "+="     => Opcode::AddAssign,
+    "-="     => Opcode::SubAssign,
+};
+
+
+FactorExpr: Box<Expr> = {
+    <lhs:FactorExpr> <op:FactorOp> <rhs:BitExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    BitExpr,
+};
+
+FactorOp: Opcode = {
+    "*"     => Opcode::Mul,
+    "/"     => Opcode::Div,
+    "%"     => Opcode::Mod,
+    "**"    => Opcode::Pow,
+
+    "*="    => Opcode::MulAssign,
+    "/="    => Opcode::DivAssign,
+    "%="    => Opcode::ModAssign,
+};
+
+
+BitExpr: Box<Expr> = {
+    <lhs:BitExpr> <op:BitOp> <rhs:UnaryExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+    UnaryExpr,
+};
+
+BitOp:  Opcode = {
+    "<<" => Opcode::Lsh,
+    ">>" => Opcode::Rsh,
+    ">>>"=> Opcode::RshUnsigned,
+    "&"  => Opcode::BitAnd,
+    "|"  => Opcode::BitOr,
+    "^"  => Opcode::BitXor,
+};
+
+
+UnaryExpr: Box<Expr> = {
+    <op:UnaryOp> <e:BaseExpr> => Box::new(Expr::UnaryOpExpr(e.loc().map_l(|l|l-1),op,e)),
+    BaseExpr,
+};
+
+UnaryOp: UnaryOpcode = {
+    "!" => UnaryOpcode::Not,
+    "-" => UnaryOpcode::Neg,
+    "+" => UnaryOpcode::Pos,
+    "~" => UnaryOpcode::BitNot,
+};
+
+BaseExpr: Box<Expr> = {
+    <l:@L> <i:Int> <r:@R>   => Box::new(Expr::Int(i, Loc::new(l,r))),
+    <l:@L> <f:Float> <r:@R> => Box::new(Expr::Float(f, Loc::new(l,r))),
+    <l:@L> <b:Bool> <r:@R>  => Box::new(Expr::Bool(b, Loc::new(l,r))),
+    <l:@L> <s:Str> <r:@R>   => Box::new(Expr::Str(s, Loc::new(l,r))),
+    <l:@L> <c:Char> <r:@R>  => Box::new(Expr::Char(c, Loc::new(l,r))),
+    <l:@L> <i:Identifier> <r:@R> => Box::new(Expr::Identifier(i, Loc::new(l,r))),
+    "(" <Expr> ")"
+};
+

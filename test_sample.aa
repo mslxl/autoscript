@@ -1,58 +1,7 @@
-import fs;
-val foul = 114514;
-val pi:float = 3.14;
-val ch = 'a';
+// I am comment
 
-val s = zero();
+/*
+I am multi-line comment
+*/
 
-fn main() -> int {
-    if(1 > 2) {
-        1+1;
-    }
-
-    while(false){
-
-    }
-
-    repeat{
-
-    }until(over_of_world);
-
-    for(a in b){
-       
-    }
-
-    if(2>3) {
-        2+3;
-    }else{
-        2+1;
-    }
-
-    if(1145>14){
-
-    }elif(true){
-
-    }
-
-    if(true){
-        if(true){
-            
-        }
-    }
-
-    if(false){
-
-    }elif(false){
-
-    }elif(false){
-
-    }else{
-
-    }
-    if(false){
-        return;
-    }
-
-    val a = -(1+1) >= (2*3-(3+2)<<2);
-    return if(true){1;}else{0;};
-}
+1 - (-1 >> 3)*3 >= 1 and 2 > 1 or false

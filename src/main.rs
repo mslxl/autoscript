@@ -1,4 +1,6 @@
 use aalang::cmd::{CmdOption, CmdParser, CmdReceiveType, CmdReceiveValue};
+use aalang::parser::ProgramParser;
+use std::fs;
 use std::{env, process::exit};
 
 fn cmd_parser()->CmdParser {
@@ -20,23 +22,41 @@ fn cmd_parser()->CmdParser {
     parser
 }
 fn main() {
-    let parser = cmd_parser();
+    let cmd = cmd_parser();
     let mut args = env::args();
     args.next();
-    match parser.parse(args) {
+    match cmd.parse(args) {
         Err(ref s)=>{
-            print!("error: {}\n\n{}",s, parser.help_str());
+            print!("error: {}\n\n{}",s, cmd.help_str());
             exit(-1)
         }
         _ => (),
     };
 
-    if parser.is_empty() || parser.get_bool("help").unwrap_or(true) {
-        print!("{}", parser.help_str());
+    if cmd.is_empty() || cmd.get_bool("help").unwrap_or(true) {
+        print!("{}", cmd.help_str());
         exit(0)
     }
 
-    let files = parser.get_suffix();
+    let files = cmd.get_suffix();
+    if files.is_empty() {
+        print!("error: no input file\n\n{}", cmd.help_str());
+        exit(-1)
+    }
 
-    println!("{:?}",files)
+    let parser = ProgramParser::new();
+    let src  = fs::read_to_string(&files[0]).expect("Fail to read file");
+
+    let ast = parser.parse(&src);
+    if cmd.get_bool("print-ast").unwrap_or(false) {
+        println!("AST:\n{:#?}", ast);
+        exit(0)
+    }
+    
+
+
+
+
+
+
 }
