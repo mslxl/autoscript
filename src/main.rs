@@ -1,67 +1,42 @@
-use std::{env, fs};
+use aalang::cmd::{CmdOption, CmdParser, CmdReceiveType, CmdReceiveValue};
+use std::{env, process::exit};
 
-use ::aalang::cmd_parser::CmdOption;
-use lalrpop_util::lalrpop_mod;
-lalrpop_mod!(pub aalang);
-use crate::aalang::AALangParser;
-
-fn print_help() {
-    println!(
-        "Usage: {} [OPTION]... [FILE]",
-        env::current_exe()
-            .unwrap()
-            .as_path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    );
-    println!("Interpreter of aalang");
-    println!("");
-    println!("Mandatory arguments to long options are mandatory for short options too.");
-    println!("      --print-ast\t print Abstract Syntax Tree, but don't exec code");
-    println!("  -h, --help\t\tshow help( you are in here)");
+fn cmd_parser()->CmdParser {
+    let mut parser = CmdParser::new();
+    parser.option(CmdOption::new(
+        "print-ast".to_string(),
+        None,
+        "print abstract syntax tree, but don't eval it".to_string(),
+        CmdReceiveType::None,
+        Some(CmdReceiveValue::Bool(false)),
+    ));
+    parser.option(CmdOption::new(
+        "help".to_string(),
+        Some("h".to_string()),
+        "print help".to_string(),
+        CmdReceiveType::None,
+        Some(CmdReceiveValue::Bool(false)),
+    ));
+    parser
 }
-
-fn launch(opt: &CmdOption) {
-    if opt.print_help {
-        print_help();
-        return;
-    }
-    if opt.file_name == None {
-        println!("fatal: no input file\n");
-        print_help();
-        return;
-    }
-    let file_name:&str = opt.file_name.as_ref().unwrap();
-
-    let parser = AALangParser::new();
-
-
-    let code = fs::read_to_string(file_name).expect("Fail to read source code");
-    let ast  = match parser.parse(&code){
-        Err(e) => panic!("{}", e),
-        Ok(ast) => ast
+fn main() {
+    let parser = cmd_parser();
+    let mut args = env::args();
+    args.next();
+    match parser.parse(args) {
+        Err(ref s)=>{
+            print!("error: {}\n\n{}",s, parser.help_str());
+            exit(-1)
+        }
+        _ => (),
     };
 
-    if opt.print_ast {
-        println!("{:#?}", ast);
-        return
+    if parser.is_empty() || parser.get_bool("help").unwrap_or(true) {
+        print!("{}", parser.help_str());
+        exit(0)
     }
 
-    panic!("{}","TODO")
+    let files = parser.get_suffix();
 
-
-}
-
-fn main() {
-    let mut args = env::args();
-    let res = CmdOption::parse(&mut args);
-    match res {
-        Result::Err(msg) => {
-            println!("{}\n", msg);
-            print_help();
-        }
-        Result::Ok(opt) => launch(&opt),
-    }
+    println!("{:?}",files)
 }
