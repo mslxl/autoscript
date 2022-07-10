@@ -120,6 +120,9 @@ UnaryOp: UnaryOpcode = {
     "-" => UnaryOpcode::Neg,
     "+" => UnaryOpcode::Pos,
     "~" => UnaryOpcode::BitNot,
+
+    "++" => UnaryOpcode::Inc,
+    "--" => UnaryOpcode::Dec,
 };
 
 BaseExpr: Box<Expr> = {

@@ -3,12 +3,19 @@ use aalang::parser::ProgramParser;
 use std::fs;
 use std::{env, process::exit};
 
-fn cmd_parser()->CmdParser {
+fn cmd_parser() -> CmdParser {
     let mut parser = CmdParser::new();
     parser.option(CmdOption::new(
         "print-ast".to_string(),
         None,
         "print abstract syntax tree, but don't eval it".to_string(),
+        CmdReceiveType::None,
+        Some(CmdReceiveValue::Bool(false)),
+    ));
+    parser.option(CmdOption::new(
+        "only-check".to_string(),
+        None,
+        "only check the types of each expr, but don't eval it".to_string(),
         CmdReceiveType::None,
         Some(CmdReceiveValue::Bool(false)),
     ));
@@ -26,8 +33,8 @@ fn main() {
     let mut args = env::args();
     args.next();
     match cmd.parse(args) {
-        Err(ref s)=>{
-            print!("error: {}\n\n{}",s, cmd.help_str());
+        Err(ref s) => {
+            print!("error: {}\n\n{}", s, cmd.help_str());
             exit(-1)
         }
         _ => (),
@@ -45,18 +52,22 @@ fn main() {
     }
 
     let parser = ProgramParser::new();
-    let src  = fs::read_to_string(&files[0]).expect("Fail to read file");
+    let src = fs::read_to_string(&files[0]).expect("Fail to read file");
 
-    let ast = parser.parse(&src);
+    let ast = match parser.parse(&src) {
+        Ok(k) => k,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            panic!();
+        }
+    };
+
     if cmd.get_bool("print-ast").unwrap_or(false) {
         println!("AST:\n{:#?}", ast);
         exit(0)
     }
-    
 
-
-
-
-
-
+    if cmd.get_bool("only-check").unwrap_or(false) {
+        println!("{:#?}", ast.check_type());
+    }
 }
