@@ -27,6 +27,17 @@ impl Loc {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum TypeRef {
+    Int,
+    Float,
+    Bool,
+    Str,
+    Char,
+    Complex(String),
+    Unit,
+}
+
 #[derive(Debug)]
 pub enum Expr {
     Int(i64, Loc),
@@ -35,9 +46,9 @@ pub enum Expr {
     Identifier(String, Loc),
     Str(String, Loc),
     Char(char, Loc),
-
     OpExpr(Loc,Box<Expr>, Opcode, Box<Expr> ),
     UnaryOpExpr(Loc,UnaryOpcode, Box<Expr>),
+    ComposeExpr(Vec<Box<Expr>>),
 }
 
 impl Expr {
