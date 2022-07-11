@@ -1,4 +1,3 @@
-
 #[derive(Copy, Clone, Debug)] //TODO: remove debug derive
 pub struct Loc {
     pub left: usize,
@@ -58,6 +57,17 @@ pub enum Expr {
         then: Box<Expr>,
         el: Box<Expr>,
     },
+    WhileExpr {
+        loc: Loc,
+        cond: Box<Expr>,
+        then: Box<Expr>,
+    },
+    RepeatExpr {
+        loc: Loc,
+        cond: Box<Expr>,
+        then: Box<Expr>,
+    },
+    LoopExpr(Loc, Box<Expr>),
 }
 
 impl Expr {
@@ -73,7 +83,10 @@ impl Expr {
             Expr::UnaryOpExpr(l, _, _) => *l,
             Expr::IfExpr { loc: l, .. } => *l,
             Expr::ComposableExpr(l, _) => *l,
-            Expr::Unit => panic!("Expr::Unit has no location context")
+            Expr::Unit => panic!("Expr::Unit has no location context"),
+            Expr::WhileExpr { loc: l, .. } => *l,
+            Expr::RepeatExpr { loc:l,.. } => *l,
+            Expr::LoopExpr(l, _) => *l
         }
     }
 }

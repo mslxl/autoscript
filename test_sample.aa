@@ -6,4 +6,16 @@
     } else {
         3
     }
+
+    while true {
+        1+1
+    }
+
+    until true {
+        1+1
+    }
+
+    loop {
+        1+1
+    }
 }

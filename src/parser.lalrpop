@@ -60,10 +60,29 @@ IfE2: Box<Expr> = {
     }),
 };
 
+ControlFlow = {
+    IfExpr,
+    WhileExpr,
+    RepeatExpr,
+    LoopExpr
+}
+
 
 IfExpr: Box<Expr> = {
     IfE1,
     IfE2,
+};
+
+WhileExpr: Box<Expr> = {
+    <l:@L> "while" <cond:LogicOrExpr> <does:ComposableExpr> => Box::new(Expr::WhileExpr{loc:Loc::new(l, does.loc().right),cond:cond, then:does}),
+};
+
+RepeatExpr: Box<Expr> = {
+    <l:@L> "until" <cond:LogicOrExpr> <does:ComposableExpr>  => Box::new(Expr::RepeatExpr{loc:Loc::new(l, does.loc().right),cond:cond, then:does}),
+};
+
+LoopExpr: Box<Expr> = {
+    <l:@L> "loop" <does:ComposableExpr> => Box::new(Expr::LoopExpr(Loc::new(l, does.loc().right), does)),
 }
 
 ComposableExpr:Box<Expr> = {
@@ -223,6 +242,6 @@ BaseExpr: Box<Expr> = {
     <l:@L> <c:Char> <r:@R>  => Box::new(Expr::Char(c, Loc::new(l,r))),
     <l:@L> <i:Identifier> <r:@R> => Box::new(Expr::Identifier(i, Loc::new(l,r))),
     "(" <Expr> ")",
-    <IfExpr>
+    ControlFlow,
 };
 
