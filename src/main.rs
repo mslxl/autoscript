@@ -2,57 +2,84 @@ use aalang::cmd::{CmdOption, CmdParser, CmdReceiveType, CmdReceiveValue};
 use aalang::parser::ProgramParser;
 use std::fs;
 use std::{env, process::exit};
+use std::env::Args;
 
-fn cmd_parser() -> CmdParser {
-    let mut parser = CmdParser::new();
-    parser.option(CmdOption::new(
-        "print-ast".to_string(),
-        None,
-        "print abstract syntax tree, but don't eval it".to_string(),
-        CmdReceiveType::None,
-        Some(CmdReceiveValue::Bool(false)),
-    ));
-    parser.option(CmdOption::new(
-        "only-check".to_string(),
-        None,
-        "only check the types of each expr, but don't eval it".to_string(),
-        CmdReceiveType::None,
-        Some(CmdReceiveValue::Bool(false)),
-    ));
-    parser.option(CmdOption::new(
-        "help".to_string(),
-        Some("h".to_string()),
-        "print help".to_string(),
-        CmdReceiveType::None,
-        Some(CmdReceiveValue::Bool(false)),
-    ));
-    parser
+struct CmdConf {
+    parser: CmdParser,
+
+    is_empty: bool,
+
+    print_ast: bool,
+    type_check: bool,
+    help: bool,
+
+    files: Vec<String>,
 }
-fn main() {
-    let cmd = cmd_parser();
-    let mut args = env::args();
-    args.next();
-    match cmd.parse(args) {
-        Err(ref s) => {
-            print!("error: {}\n\n{}", s, cmd.help_str());
-            exit(-1)
-        }
-        _ => (),
-    };
 
-    if cmd.is_empty() || cmd.get_bool("help").unwrap_or(true) {
-        print!("{}", cmd.help_str());
-        exit(0)
+impl CmdConf {
+    fn parser() -> CmdParser {
+        let mut parser = CmdParser::new();
+        parser.option(CmdOption::new(
+            "print-ast".to_string(),
+            None,
+            "print abstract syntax tree, but don't eval it".to_string(),
+            CmdReceiveType::None,
+            Some(CmdReceiveValue::Bool(false)),
+        ));
+        parser.option(CmdOption::new(
+            "check".to_string(),
+            None,
+            "only check the types of each expr, but don't eval it".to_string(),
+            CmdReceiveType::None,
+            Some(CmdReceiveValue::Bool(false)),
+        ));
+        parser.option(CmdOption::new(
+            "help".to_string(),
+            Some("h".to_string()),
+            "print help".to_string(),
+            CmdReceiveType::None,
+            Some(CmdReceiveValue::Bool(false)),
+        ));
+        parser
     }
 
-    let files = cmd.get_suffix();
-    if files.is_empty() {
-        print!("error: no input file\n\n{}", cmd.help_str());
+
+    fn from(args: &mut Args) -> Result<CmdConf, String> {
+        let parser = CmdConf::parser();
+        parser.parse(args)?;
+        Ok(CmdConf {
+            is_empty: parser.is_empty(),
+            print_ast: parser.get_bool("print-ast").unwrap_or(false),
+            type_check: parser.get_bool("check").unwrap_or(false),
+            help: parser.get_bool("help").unwrap_or(false),
+            files: parser.get_suffix(),
+            parser,
+        })
+    }
+}
+
+
+fn main() {
+    let mut args = env::args();
+    args.next();
+    let conf = CmdConf::from(&mut args);
+    if let Err(ref s) = conf {
+        print!("error: {}\n\n{}", s, CmdConf::parser().help_str());
+        exit(-1)
+    }
+    let conf = conf.unwrap();
+
+    if conf.is_empty || conf.help {
+        print!("{}", conf.parser.help_str());
+        exit(0)
+    }
+    if conf.files.is_empty() {
+        print!("error: no input file\n\n{}", conf.parser.help_str());
         exit(-1)
     }
 
     let parser = ProgramParser::new();
-    let src = fs::read_to_string(&files[0]).expect("Fail to read file");
+    let src = fs::read_to_string(&conf.files[0]).expect("Fail to read file");
 
     let ast = match parser.parse(&src) {
         Ok(k) => k,
@@ -61,13 +88,13 @@ fn main() {
             panic!();
         }
     };
-
-    if cmd.get_bool("print-ast").unwrap_or(false) {
+    if conf.print_ast {
         println!("AST:\n{:#?}", ast);
         exit(0)
     }
 
-    if cmd.get_bool("only-check").unwrap_or(false) {
-        println!("{:#?}", ast.check_type());
+    if conf.type_check {
+        // println!("{:#?}", ast.check_type());
     }
+
 }

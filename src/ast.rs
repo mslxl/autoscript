@@ -1,3 +1,4 @@
+
 #[derive(Copy, Clone, Debug)] //TODO: remove debug derive
 pub struct Loc {
     pub left: usize,
@@ -28,16 +29,6 @@ impl Loc {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum TypeRef {
-    Int,
-    Float,
-    Bool,
-    Str,
-    Char,
-    Complex(String),
-    Unit,
-}
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -85,7 +76,7 @@ impl Expr {
             Expr::ComposableExpr(l, _) => *l,
             Expr::Unit => panic!("Expr::Unit has no location context"),
             Expr::WhileExpr { loc: l, .. } => *l,
-            Expr::RepeatExpr { loc:l,.. } => *l,
+            Expr::RepeatExpr { loc: l, .. } => *l,
             Expr::LoopExpr(l, _) => *l
         }
     }
