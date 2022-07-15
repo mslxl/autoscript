@@ -1,4 +1,21 @@
-use crate::ast::{Expr, Opcode, Loc, UnaryOpcode};
+use crate::ast::{
+    Expr,
+    UnitExpr,
+    IntConstExpr,
+    FloatConstExpr,
+    BoolConstExpr,
+    IdentifierExpr,
+    StrConstExpr,
+    CharConstExpr,
+    OpExpr,
+    UnaryOpExpr,
+    ComposableExpr,
+    IfExpr,
+    WhileExpr,
+    TriOpExpr,
+    Opcode,
+    UnaryOpcode
+};
 
 grammar();
 match {
@@ -35,29 +52,17 @@ OptN = {
 // if expr
 // ----------
 
-IfE1: Box<Expr> = {
-    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfE1> "else" <el:IfE1> => Box::new(Expr::IfExpr{
-        loc: Loc::new(l, el.loc().right),
-        cond: cond,
-        then: then,
-        el: el,
-    }),
+IfE1: Box<dyn Expr> = {
+    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfE1> "else" <el:IfE1> => Box::new(IfExpr::new(cond,then,el)),
     <expr:ComposableExpr> => expr,
 };
 
-IfE2: Box<Expr> = {
-    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfExpr> => Box::new(Expr::IfExpr{
-        loc: Loc::new(l, then.loc().right),
-        cond: cond,
-        then: then,
-        el: Box::new(Expr::Unit),
-    }),
-    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfE1> "else" <el:IfE2> =>Box::new(Expr::IfExpr{
-        loc: Loc::new(l, el.loc().right),
-        cond: cond,
-        then: then,
-        el: el,
-    }),
+IfE2: Box<dyn Expr> = {
+    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfExpr> =>     {
+        let end_loc = then.loc();
+        Box::new(IfExpr::new(cond, then, Box::new(UnitExpr::new(end_loc.right))))
+    },
+    <l:@L> "if"  <cond:LogicOrExpr>  <then:IfE1> "else" <el:IfE2> => Box::new(IfExpr::new(cond, then, el)),
 };
 
 ControlFlow = {
@@ -68,24 +73,27 @@ ControlFlow = {
 }
 
 
-IfExpr: Box<Expr> = {
+IfExpr: Box<dyn Expr> = {
     IfE1,
     IfE2,
 };
 
-WhileExpr: Box<Expr> = {
-    <l:@L> "while" <cond:LogicOrExpr> <does:ComposableExpr> => Box::new(Expr::WhileExpr{loc:Loc::new(l, does.loc().right),cond:cond, then:does}),
+WhileExpr: Box<dyn Expr> = {
+    <l:@L> "while" <cond:LogicOrExpr> <does:ComposableExpr> => Box::new(WhileExpr::new(cond, does)),
 };
 
-RepeatExpr: Box<Expr> = {
-    <l:@L> "until" <cond:LogicOrExpr> <does:ComposableExpr>  => Box::new(Expr::RepeatExpr{loc:Loc::new(l, does.loc().right),cond:cond, then:does}),
+RepeatExpr: Box<dyn Expr> = {
+    <l:@L> "until" <cond:LogicOrExpr> <does:ComposableExpr>  => {
+        Box::new(WhileExpr::new(Box::new(UnaryOpExpr::new(cond, UnaryOpcode::Not)), does))
+
+    },
 };
 
-LoopExpr: Box<Expr> = {
-    <l:@L> "loop" <does:ComposableExpr> => Box::new(Expr::LoopExpr(Loc::new(l, does.loc().right), does)),
+LoopExpr: Box<dyn Expr> = {
+    <l:@L> "loop" <does:ComposableExpr> => Box::new(WhileExpr::new(Box::new(BoolConstExpr::new_true(l,l)), does)),
 }
 
-ComposableExpr:Box<Expr> = {
+ComposableExpr:Box<dyn Expr> = {
      <l:@L>"{" OptN <mut es:Stmt*> <e:Expr?> "}" <r:@R> => {
         let stmts = match e {
             None => es,
@@ -94,11 +102,11 @@ ComposableExpr:Box<Expr> = {
                 es
             }
         };
-        Box::new(Expr::ComposableExpr(Loc::new(l,r),stmts))
+        Box::new(ComposableExpr::new(l,r,stmts))
      }
 };
 
-Stmt: Box<Expr> = {
+Stmt: Box<dyn Expr> = {
     <Expr> NecN
 };
 
@@ -112,8 +120,8 @@ Expr = {
 // ---------
 
 
-LogicOrExpr: Box<Expr> = {
-    <lhs:LogicOrExpr> <op:LogicOrExprOp> OptN <rhs:LogicAndExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+LogicOrExpr: Box<dyn Expr> = {
+    <lhs:LogicOrExpr> <op:LogicOrExprOp> OptN <rhs:LogicAndExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     LogicAndExpr,
 };
 
@@ -123,8 +131,8 @@ LogicOrExprOp : Opcode ={
 };
 
 
-LogicAndExpr: Box<Expr> = {
-    <lhs:LogicAndExpr> <op:LogicAndExprOp> OptN <rhs:CompareExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+LogicAndExpr: Box<dyn Expr> = {
+    <lhs:LogicAndExpr> <op:LogicAndExprOp> OptN <rhs:CompareExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     CompareExpr,
 };
 
@@ -134,27 +142,12 @@ LogicAndExprOp: Opcode = {
 }
 
 
-CompareExpr: Box<Expr> = {
-    <lhs:TermExpr> <op:CompareExprOp> OptN <rhs:TermExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+CompareExpr: Box<dyn Expr> = {
+    <lhs:TermExpr> <op:CompareExprOp> OptN <rhs:TermExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     <lhs:TermExpr> <lop:CompareExprOp> OptN <mhs:TermExpr> <rop:CompareExprOp> OptN <rhs:TermExpr> => {
-        Box::new(Expr::OpExpr(
-            Loc::merge(&lhs.loc(), &rhs.loc()),
-            Box::new(Expr::OpExpr(
-                Loc::merge(&lhs.loc(), &mhs.loc()),
-                lhs,
-                lop,
-                mhs.clone(),
-            )),
-            Opcode::And,
-            Box::new(Expr::OpExpr(
-                Loc::merge(&mhs.loc(), &rhs.loc()),
-                mhs.clone(),
-                rop,
-                rhs,
-            )),
-        ))
+        Box::new(TriOpExpr::new(lhs, lop, mhs, rop, rhs))
     },
-    <l:@L> <b:Bool> <r:@R>  => Box::new(Expr::Bool(b, Loc::new(l,r))),
+    <l:@L> <b:Bool> <r:@R>  => Box::new(BoolConstExpr::new(l,r, b)),
 };
 
 CompareExprOp: Opcode = {
@@ -166,8 +159,8 @@ CompareExprOp: Opcode = {
 };
 
 
-TermExpr: Box<Expr> = {
-    <lhs:TermExpr> <op:TermExprOp> OptN <rhs:FactorExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+TermExpr: Box<dyn Expr> = {
+    <lhs:TermExpr> <op:TermExprOp> OptN <rhs:FactorExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     FactorExpr,
 };
 
@@ -180,8 +173,8 @@ TermExprOp: Opcode = {
 };
 
 
-FactorExpr: Box<Expr> = {
-    <lhs:FactorExpr> <op:FactorOp> OptN <rhs:BitExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+FactorExpr: Box<dyn Expr> = {
+    <lhs:FactorExpr> <op:FactorOp> OptN <rhs:BitExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     BitExpr,
 };
 
@@ -197,8 +190,8 @@ FactorOp: Opcode = {
 };
 
 
-BitExpr: Box<Expr> = {
-    <lhs:BitExpr>  <op:BitOp> OptN <rhs:UnaryExpr> => Box::new(Expr::OpExpr(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, op, rhs)),
+BitExpr: Box<dyn Expr> = {
+    <lhs:BitExpr>  <op:BitOp> OptN <rhs:UnaryExpr> => Box::new(OpExpr::new(lhs, rhs, op)),
     UnaryExpr,
 };
 
@@ -212,8 +205,8 @@ BitOp:  Opcode = {
 };
 
 
-UnaryExpr: Box<Expr> = {
-    <op:UnaryOp> <e:SuffixExpr> => Box::new(Expr::UnaryOpExpr(e.loc().map_l(|l|l-1),op,e)),
+UnaryExpr: Box<dyn Expr> = {
+    <op:UnaryOp> <e:SuffixExpr> => Box::new(UnaryOpExpr::new(e,op)),
     SuffixExpr,
 };
 
@@ -225,8 +218,8 @@ UnaryOp: UnaryOpcode = {
 
 };
 
-SuffixExpr: Box<Expr> = {
-    <e:BaseExpr> <op:SuffixOp> => Box::new(Expr::UnaryOpExpr(e.loc().map_r(|r|r+2),op,e)),
+SuffixExpr: Box<dyn Expr> = {
+    <e:BaseExpr> <op:SuffixOp> => Box::new(UnaryOpExpr::new(e,op)),
     BaseExpr,
 };
 
@@ -235,12 +228,12 @@ SuffixOp: UnaryOpcode = {
     "--" => UnaryOpcode::Dec,
 };
 
-BaseExpr: Box<Expr> = {
-    <l:@L> <i:Int> <r:@R>   => Box::new(Expr::Int(i, Loc::new(l,r))),
-    <l:@L> <f:Float> <r:@R> => Box::new(Expr::Float(f, Loc::new(l,r))),
-    <l:@L> <s:Str> <r:@R>   => Box::new(Expr::Str(s, Loc::new(l,r))),
-    <l:@L> <c:Char> <r:@R>  => Box::new(Expr::Char(c, Loc::new(l,r))),
-    <l:@L> <i:Identifier> <r:@R> => Box::new(Expr::Identifier(i, Loc::new(l,r))),
+BaseExpr: Box<dyn Expr> = {
+    <l:@L> <i:Int> <r:@R>   => Box::new(IntConstExpr::new(l,r,i)),
+    <l:@L> <f:Float> <r:@R> => Box::new(FloatConstExpr::new(l,r,f)),
+    <l:@L> <s:Str> <r:@R>   => Box::new(StrConstExpr::new(l,r,s)),
+    <l:@L> <c:Char> <r:@R>  => Box::new(CharConstExpr::new(l,r,c)),
+    <l:@L> <i:Identifier> <r:@R> => Box::new(IdentifierExpr::new(l,r,i)),
     "(" <Expr> ")",
     ControlFlow,
 };

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 
 #[derive(Copy, Clone, Debug)] //TODO: remove debug derive
 pub struct Loc {
@@ -11,7 +12,10 @@ impl Loc {
     }
 
     pub fn merge(l: &Loc, r: &Loc) -> Self {
-        Loc { left: l.left, right: r.right }
+        Loc {
+            left: l.left,
+            right: r.right,
+        }
     }
 
     pub fn map_l(&self, b: fn(l: usize) -> usize) -> Self {
@@ -29,55 +33,213 @@ impl Loc {
     }
 }
 
-
-#[derive(Debug, Clone)]
-pub enum Expr {
-    Unit,
-    Int(i64, Loc),
-    Float(f64, Loc),
-    Bool(bool, Loc),
-    Identifier(String, Loc),
-    Str(String, Loc),
-    Char(char, Loc),
-    OpExpr(Loc, Box<Expr>, Opcode, Box<Expr>),
-    UnaryOpExpr(Loc, UnaryOpcode, Box<Expr>),
-    ComposableExpr(Loc, Vec<Box<Expr>>),
-    IfExpr {
-        loc: Loc,
-        cond: Box<Expr>,
-        then: Box<Expr>,
-        el: Box<Expr>,
-    },
-    WhileExpr {
-        loc: Loc,
-        cond: Box<Expr>,
-        then: Box<Expr>,
-    },
-    RepeatExpr {
-        loc: Loc,
-        cond: Box<Expr>,
-        then: Box<Expr>,
-    },
-    LoopExpr(Loc, Box<Expr>),
+pub trait Expr: Debug {
+    fn loc(&self) -> Loc;
 }
 
-impl Expr {
-    pub fn loc(&self) -> Loc {
-        match self {
-            Expr::Int(_, l) => *l,
-            Expr::Float(_, l) => *l,
-            Expr::Bool(_, l) => *l,
-            Expr::Identifier(_, l) => *l,
-            Expr::Str(_, l) => *l,
-            Expr::Char(_, l) => *l,
-            Expr::OpExpr(l, _, _, _) => *l,
-            Expr::UnaryOpExpr(l, _, _) => *l,
-            Expr::IfExpr { loc: l, .. } => *l,
-            Expr::ComposableExpr(l, _) => *l,
-            Expr::Unit => panic!("Expr::Unit has no location context"),
-            Expr::WhileExpr { loc: l, .. } => *l,
-            Expr::RepeatExpr { loc: l, .. } => *l,
-            Expr::LoopExpr(l, _) => *l
+#[derive(Debug)]
+pub struct UnitExpr(Loc);
+impl Expr for UnitExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+
+impl UnitExpr {
+    pub fn new(loc: usize) -> Self {
+        UnitExpr(Loc::new(loc, loc))
+    }
+}
+
+#[derive(Debug)]
+pub struct IntConstExpr(Loc, i64);
+impl Expr for IntConstExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl IntConstExpr {
+    pub fn new(l: usize, r: usize, value: i64) -> Self {
+        Self(Loc::new(l, r), value)
+    }
+}
+
+#[derive(Debug)]
+pub struct FloatConstExpr(Loc, f64);
+impl Expr for FloatConstExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl FloatConstExpr {
+    pub fn new(l: usize, r: usize, value: f64) -> Self {
+        Self(Loc::new(l, r), value)
+    }
+}
+
+#[derive(Debug)]
+pub struct BoolConstExpr(Loc, bool);
+impl Expr for BoolConstExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+
+impl BoolConstExpr {
+    pub fn new(l: usize, r: usize, value: bool) -> Self {
+        BoolConstExpr(Loc::new(l, r), value)
+    }
+    pub fn new_true(l: usize, r: usize) -> Self {
+        Self::new(l, r, true)
+    }
+    pub fn new_false(l: usize, r: usize) -> Self {
+        Self::new(l, r, false)
+    }
+}
+
+#[derive(Debug)]
+pub struct IdentifierExpr(Loc, String);
+impl Expr for IdentifierExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl IdentifierExpr {
+    pub fn new(l: usize, r: usize, value: String) -> Self {
+        Self(Loc::new(l, r), value)
+    }
+}
+
+#[derive(Debug)]
+pub struct StrConstExpr(Loc, String);
+impl Expr for StrConstExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl StrConstExpr {
+    pub fn new(l: usize, r: usize, value: String) -> Self {
+        Self(Loc::new(l, r), value)
+    }
+}
+
+#[derive(Debug)]
+pub struct CharConstExpr(Loc, char);
+impl Expr for CharConstExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl CharConstExpr{
+    pub fn new(l:usize, r:usize, value:char)->Self{
+        Self(Loc::new(l,r), value)
+    }
+}
+
+#[derive(Debug)]
+pub struct OpExpr(Loc, Box<dyn Expr>, Opcode, Box<dyn Expr>);
+impl Expr for OpExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl OpExpr {
+    pub fn new(lhs: Box<dyn Expr>, rhs: Box<dyn Expr>, opcode: Opcode) -> Self {
+        Self(Loc::merge(&lhs.loc(), &rhs.loc()), lhs, opcode, rhs)
+    }
+}
+
+#[derive(Debug)]
+pub struct TriOpExpr(
+    Loc,
+    (Box<dyn Expr>, Opcode),
+    Box<dyn Expr>,
+    (Opcode, Box<dyn Expr>),
+);
+impl Expr for TriOpExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl TriOpExpr {
+    pub fn new(
+        lhs: Box<dyn Expr>,
+        lop: Opcode,
+        mhs: Box<dyn Expr>,
+        rop: Opcode,
+        rhs: Box<dyn Expr>,
+    ) -> Self {
+        let loc = Loc::merge(&lhs.loc(), &rhs.loc());
+        Self(loc, (lhs, lop), mhs, (rop, rhs))
+    }
+}
+
+#[derive(Debug)]
+pub struct UnaryOpExpr(Loc, UnaryOpcode, Box<dyn Expr>);
+impl Expr for UnaryOpExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl UnaryOpExpr {
+    pub fn new(value: Box<dyn Expr>, op: UnaryOpcode) -> Self {
+        Self(value.loc().map_l(|x| x - 1), op, value)
+    }
+}
+
+#[derive(Debug)]
+pub struct ComposableExpr(Loc, Vec<Box<dyn Expr>>);
+impl Expr for ComposableExpr {
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl ComposableExpr {
+    pub fn new(l: usize, r: usize, seq: Vec<Box<dyn Expr>>) -> Self {
+        ComposableExpr(Loc::new(l, r), seq)
+    }
+}
+
+#[derive(Debug)]
+pub struct IfExpr {
+    pub loc: Loc,
+    pub cond: Box<dyn Expr>,
+    pub then: Box<dyn Expr>,
+    pub el: Box<dyn Expr>,
+}
+impl Expr for IfExpr {
+    fn loc(&self) -> Loc {
+        self.loc
+    }
+}
+impl IfExpr {
+    pub fn new(cond: Box<dyn Expr>, then: Box<dyn Expr>, el: Box<dyn Expr>) -> Self {
+        Self {
+            loc: Loc::merge(&cond.loc(), &el.loc()),
+            cond,
+            then,
+            el,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct WhileExpr {
+    pub loc: Loc,
+    pub cond: Box<dyn Expr>,
+    pub then: Box<dyn Expr>,
+}
+impl Expr for WhileExpr {
+    fn loc(&self) -> Loc {
+        self.loc
+    }
+}
+impl WhileExpr {
+    pub fn new(cond: Box<dyn Expr>, then: Box<dyn Expr>) -> Self {
+        Self {
+            loc: Loc::merge(&cond.loc(), &then.loc()),
+            cond,
+            then,
         }
     }
 }
@@ -101,7 +263,7 @@ pub enum UnaryOpcode {
 pub enum Opcode {
     MemberAccess,
     // .
-    IndexAccess,  // []
+    IndexAccess, // []
 
     Lsh,
     // <<
@@ -113,7 +275,7 @@ pub enum Opcode {
     // &
     BitOr,
     // |
-    BitXor,      // ^
+    BitXor, // ^
 
     Mul,
     // *
@@ -149,5 +311,5 @@ pub enum Opcode {
 
     And,
     // &&
-    Or,  // ||
+    Or, // ||
 }
