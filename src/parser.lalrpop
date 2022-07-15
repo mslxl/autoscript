@@ -14,7 +14,12 @@ use crate::ast::{
     WhileExpr,
     TriOpExpr,
     Opcode,
-    UnaryOpcode
+    UnaryOpcode,
+
+    Func,
+    TypeRef,
+    DeclVarExpr,
+    TopLevelScopeDecl
 };
 
 grammar();
@@ -26,7 +31,12 @@ match {
     _
 }
 
-pub Program = ComposableExpr;
+pub Program = <TopScopeElement*>;
+
+TopScopeElement:Box<dyn TopLevelScopeDecl> = {
+    <f:FuncDef> => Box::new(f) as Box<dyn TopLevelScopeDecl>,
+    <v:DeclVarExpr> OptN => v as Box<dyn TopLevelScopeDecl>,
+}
 
 
 Float  : f64    = r"[0-9]+((\.[0-9]+)([eE][0-9]+)?|([eE][0-9]+))"   => <>.parse().unwrap();
@@ -47,10 +57,51 @@ OptN = {
     => ""
 };
 
+// macro util
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+// function def
+
+TypedArgs: (String, TypeRef, Option<Box<dyn Expr>>) ={
+    <id:Identifier> ":" <t:Identifier> => (id, TypeRef(t), None),
+    <id:Identifier> ":" <t:Identifier> "=" <v:Expr> => (id, TypeRef(t), Some(v)),
+}
+
+
+
+FuncDef: Func = {
+    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" <block:ComposableExpr> => {
+        Func::new(l,block.loc().right,id, "unit".to_string(), args, block)
+    },
+    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" "->" <return_type:Identifier> <block:ComposableExpr> => {
+        Func::new(l,block.loc().right,id, return_type, args, block)
+    }
+}
+
+// var decl
+
+DeclVarExpr: Box<DeclVarExpr> = {
+    <l:@L> "val" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
+        Box::new(DeclVarExpr::new(l, exp.loc().right, id, None,false, exp))
+    },
+    <l:@L> "var" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
+        Box::new(DeclVarExpr::new(l, exp.loc().right, id, None,true, exp))
+    }
+}
+
 
 // --------
 // if expr
 // ----------
+
 
 IfE1: Box<dyn Expr> = {
     <l:@L> "if"  <cond:LogicOrExpr>  <then:IfE1> "else" <el:IfE1> => Box::new(IfExpr::new(cond,then,el)),
@@ -93,7 +144,7 @@ LoopExpr: Box<dyn Expr> = {
     <l:@L> "loop" <does:ComposableExpr> => Box::new(WhileExpr::new(Box::new(BoolConstExpr::new_true(l,l)), does)),
 }
 
-ComposableExpr:Box<dyn Expr> = {
+ComposableExpr:Box<ComposableExpr> = {
      <l:@L>"{" OptN <mut es:Stmt*> <e:Expr?> "}" <r:@R> => {
         let stmts = match e {
             None => es,
@@ -113,6 +164,7 @@ Stmt: Box<dyn Expr> = {
 Expr = {
     LogicOrExpr,
     TermExpr,
+    <t:DeclVarExpr> => {t as Box<dyn Expr>},
 };
 
 // ---------
@@ -152,6 +204,7 @@ CompareExpr: Box<dyn Expr> = {
 
 CompareExprOp: Opcode = {
     "=="    => Opcode::Eq,
+    "!="    => Opcode::Ne,
     ">"     => Opcode::Gt,
     "<"     => Opcode::Lt,
     ">="    => Opcode::Ge,

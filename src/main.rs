@@ -1,8 +1,8 @@
 use aalang::cmd::{CmdOption, CmdParser, CmdReceiveType, CmdReceiveValue};
 use aalang::parser::ProgramParser;
+use std::env::Args;
 use std::fs;
 use std::{env, process::exit};
-use std::env::Args;
 
 struct CmdConf {
     parser: CmdParser,
@@ -10,6 +10,7 @@ struct CmdConf {
     is_empty: bool,
 
     print_ast: bool,
+    human_readable: bool,
     type_check: bool,
     help: bool,
 
@@ -23,6 +24,13 @@ impl CmdConf {
             "print-ast".to_string(),
             None,
             "print abstract syntax tree, but don't eval it".to_string(),
+            CmdReceiveType::None,
+            Some(CmdReceiveValue::Bool(false)),
+        ));
+        parser.option(CmdOption::new(
+            "human-readable".to_string(),
+            None,
+            "print data in format".to_string(),
             CmdReceiveType::None,
             Some(CmdReceiveValue::Bool(false)),
         ));
@@ -43,7 +51,6 @@ impl CmdConf {
         parser
     }
 
-
     fn from(args: &mut Args) -> Result<CmdConf, String> {
         let parser = CmdConf::parser();
         parser.parse(args)?;
@@ -52,12 +59,12 @@ impl CmdConf {
             print_ast: parser.get_bool("print-ast").unwrap_or(false),
             type_check: parser.get_bool("check").unwrap_or(false),
             help: parser.get_bool("help").unwrap_or(false),
+            human_readable: parser.get_bool("human-readable").unwrap_or(false),
             files: parser.get_suffix(),
             parser,
         })
     }
 }
-
 
 fn main() {
     let mut args = env::args();
@@ -89,12 +96,15 @@ fn main() {
         }
     };
     if conf.print_ast {
-        println!("AST:\n{:#?}", ast);
+        if conf.human_readable {
+            println!("AST:\n{:#?}", ast);
+        } else {
+            println!("AST:\n{:?}", ast);
+        }
         exit(0)
     }
 
     if conf.type_check {
         // println!("{:#?}", ast.check_type());
     }
-
 }

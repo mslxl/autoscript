@@ -1,5 +1,10 @@
-{
-    if 1 < x < 3  {
+val global = "This is a global const string"
+
+fn main(retry:int, allow:bool = false)->int{
+    val pi = 3.14
+    var e:float = 2.71828
+    val x = 2
+    val result_of_if = if 1 < x < 3  {
         1
     } else if 114 > 514 {
         2
@@ -7,7 +12,7 @@
         3
     }
 
-    while true {
+    while x-- != 0 {
         1+1
     }
 

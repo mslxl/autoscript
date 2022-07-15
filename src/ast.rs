@@ -1,5 +1,14 @@
 use std::fmt::Debug;
 
+pub trait TopLevelScopeDecl:Debug {
+    fn get_name(&self) -> &str;
+    fn get_type(&self) -> &str;
+}
+
+pub trait Expr: Debug {
+    fn loc(&self) -> Loc;
+}
+
 #[derive(Copy, Clone, Debug)] //TODO: remove debug derive
 pub struct Loc {
     pub left: usize,
@@ -33,8 +42,83 @@ impl Loc {
     }
 }
 
-pub trait Expr: Debug {
-    fn loc(&self) -> Loc;
+
+#[derive(Debug)]
+pub struct TypeRef(pub String);
+#[derive(Debug)]
+pub struct Func {
+    loc: Loc,
+    name: String,
+    return_type: TypeRef,
+    args: Vec<(String, TypeRef, Option<Box<dyn Expr>>)>,
+    block: Box<ComposableExpr>,
+}
+impl Func {
+    pub fn new(
+        l: usize,
+        r: usize,
+        name: String,
+        return_type: String,
+        args: Vec<(String, TypeRef, Option<Box<dyn Expr>>)>,
+        block: Box<ComposableExpr>,
+    ) -> Self {
+        Self {
+            loc: Loc::new(l, r),
+            return_type: TypeRef(return_type),
+            name,
+            args,
+            block,
+        }
+    }
+}
+impl TopLevelScopeDecl for Func {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+    fn get_type(&self) -> &str {
+        &self.return_type.0
+    }
+}
+
+
+#[derive(Debug)]
+pub struct DeclVarExpr {
+    loc: Loc,
+    name: String,
+    var_type: Option<TypeRef>,
+    mutable: bool,
+    value: Box<dyn Expr>,
+}
+impl Expr for DeclVarExpr {
+    fn loc(&self) -> Loc {
+        self.loc
+    }
+}
+impl DeclVarExpr {
+    pub fn new(
+        l: usize,
+        r: usize,
+        name: String,
+        var_type: Option<TypeRef>,
+        mutable: bool,
+        value: Box<dyn Expr>,
+    ) -> Self {
+        Self {
+            loc: Loc::new(l, r),
+            name,
+            var_type,
+            mutable,
+            value,
+        }
+    }
+}
+impl TopLevelScopeDecl for DeclVarExpr {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+    fn get_type(&self) -> &str {
+        &self.var_type.as_ref().unwrap().0
+    }
 }
 
 #[derive(Debug)]
@@ -130,9 +214,9 @@ impl Expr for CharConstExpr {
         self.0
     }
 }
-impl CharConstExpr{
-    pub fn new(l:usize, r:usize, value:char)->Self{
-        Self(Loc::new(l,r), value)
+impl CharConstExpr {
+    pub fn new(l: usize, r: usize, value: char) -> Self {
+        Self(Loc::new(l, r), value)
     }
 }
 
@@ -301,6 +385,8 @@ pub enum Opcode {
 
     Eq,
     // ==
+    Ne,
+    // !=
     Lt,
     // <
     Gt,
