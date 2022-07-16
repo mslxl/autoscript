@@ -15,6 +15,8 @@ use crate::ast::{
     TriOpExpr,
     Opcode,
     UnaryOpcode,
+    ReturnStmt,
+    FuncCallExpr,
 
     Func,
     TypeRef,
@@ -158,18 +160,33 @@ ComposableExpr:Box<ComposableExpr> = {
 };
 
 Stmt: Box<dyn Expr> = {
-    <Expr> NecN
+    <Expr> NecN,
+    ReturnStmt
 };
 
 Expr = {
     LogicOrExpr,
     TermExpr,
-    <t:DeclVarExpr> => {t as Box<dyn Expr>},
+    <t:DeclVarExpr> => t as Box<dyn Expr>,
+    <t:FuncCallExpr> => t as Box<dyn Expr>,
 };
+
+// ------
+// return
+// ------
+
+ReturnStmt: Box<ReturnStmt> = {
+    <l:@L> "return" <e:Expr?> <r:@R> NecN => Box::new(ReturnStmt::new(l,r, e))
+}
+
 
 // ---------
 // Expr
 // ---------
+
+FuncCallExpr: Box<FuncCallExpr> = {
+    <l:@L> <id:Identifier> "(" <args:Comma<Expr>> ")" <r:@R> => Box::new(FuncCallExpr::new(l,r,id,args))
+}
 
 
 LogicOrExpr: Box<dyn Expr> = {

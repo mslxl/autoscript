@@ -80,6 +80,32 @@ impl TopLevelScopeDecl for Func {
     }
 }
 
+#[derive(Debug)]
+pub struct FuncCallExpr(Loc, String, Vec<Box<dyn Expr>>);
+impl Expr for FuncCallExpr{
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl FuncCallExpr{
+    pub fn new(l:usize, r:usize, name:String, args:Vec<Box<dyn Expr>>)->Self{
+        Self(Loc::new(l,r), name, args)
+    }
+}
+
+#[derive(Debug)]
+pub struct ReturnStmt(Loc,Option<Box<dyn Expr>>);
+impl Expr for ReturnStmt{
+    fn loc(&self) -> Loc {
+        self.0
+    }
+}
+impl ReturnStmt{
+    pub fn new(l:usize, r:usize, e:Option<Box<dyn Expr>>)->Self{
+        Self(Loc::new(l,r),e)
+    }
+}
+
 
 #[derive(Debug)]
 pub struct DeclVarExpr {
