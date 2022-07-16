@@ -1,0 +1,21 @@
+fn main(){
+    val a = 3
+    if a > 2 {
+        print("a > 2")
+    } else if a < 2 {
+        // impossible
+    } else {
+        // impossible
+    }
+
+    while a != 0 {
+        print(a)
+        a--
+    }
+
+    until a == 5 {
+        print(a)
+        a++
+    }
+
+}
