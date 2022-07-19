@@ -1,5 +1,5 @@
 use aalang::cmd::{CmdOption, CmdParser, CmdReceiveType, CmdReceiveValue};
-use aalang::parser::ProgramParser;
+use aalang::program::Program;
 use std::env::Args;
 use std::fs;
 use std::{env, process::exit};
@@ -11,7 +11,7 @@ struct CmdConf {
 
     print_ast: bool,
     human_readable: bool,
-    type_check: bool,
+    // type_check: bool,
     help: bool,
 
     files: Vec<String>,
@@ -57,7 +57,7 @@ impl CmdConf {
         Ok(CmdConf {
             is_empty: parser.is_empty(),
             print_ast: parser.get_bool("print-ast").unwrap_or(false),
-            type_check: parser.get_bool("check").unwrap_or(false),
+            // type_check: parser.get_bool("check").unwrap_or(false),
             help: parser.get_bool("help").unwrap_or(false),
             human_readable: parser.get_bool("human-readable").unwrap_or(false),
             files: parser.get_suffix(),
@@ -84,27 +84,19 @@ fn main() {
         print!("error: no input file\n\n{}", conf.parser.help_str());
         exit(-1)
     }
+    let mut program = Program::new();
+    for file in conf.files{
+        let code = fs::read_to_string(&file)
+            .expect(&format!("Unable to read file '{}'", &file));
+        program.load(&code).unwrap();
+    }
 
-    let parser = ProgramParser::new();
-    let src = fs::read_to_string(&conf.files[0]).expect("Fail to read file");
-
-    let ast = match parser.parse(&src) {
-        Ok(k) => k,
-        Err(err) => {
-            eprintln!("{:?}", err);
-            panic!();
-        }
-    };
     if conf.print_ast {
         if conf.human_readable {
-            println!("AST:\n{:#?}", ast);
-        } else {
-            println!("AST:\n{:?}", ast);
+            println!("{:#?}", program)
+        } else{
+            println!("{:?}", program)
         }
-        exit(0)
     }
 
-    if conf.type_check {
-        // println!("{:#?}", ast.check_type());
-    }
 }

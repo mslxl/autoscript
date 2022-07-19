@@ -1,10 +1,13 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug
+};
 
-pub trait TopLevelScopeDecl:Debug {
-    fn get_name(&self) -> &str;
-    fn get_type(&self) -> &str;
+#[derive(Debug)]
+pub enum TopLevelScopeDecl {
+    FuncDecl(Box<FuncDecl>),
+    VarDecl(Box<VarDeclExpr>),
+    Import(Box<ImportStmt>),
 }
-
 pub trait Expr: Debug {
     fn loc(&self) -> Loc;
 }
@@ -42,18 +45,17 @@ impl Loc {
     }
 }
 
-
 #[derive(Debug)]
 pub struct TypeRef(pub String);
 #[derive(Debug)]
-pub struct Func {
-    loc: Loc,
-    name: String,
-    return_type: TypeRef,
-    args: Vec<(String, TypeRef, Option<Box<dyn Expr>>)>,
-    block: Box<ComposableExpr>,
+pub struct FuncDecl {
+    pub loc: Loc,
+    pub name: String,
+    pub return_type: TypeRef,
+    pub args: Vec<(String, TypeRef, Option<Box<dyn Expr>>)>,
+    pub block: Box<ComposableExpr>,
 }
-impl Func {
+impl FuncDecl {
     pub fn new(
         l: usize,
         r: usize,
@@ -71,56 +73,55 @@ impl Func {
         }
     }
 }
-impl TopLevelScopeDecl for Func {
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-    fn get_type(&self) -> &str {
-        &self.return_type.0
+
+#[derive(Debug)]
+pub struct ImportStmt(Loc, String);
+impl ImportStmt {
+    pub fn new(l: usize, r: usize, s: String) -> Self {
+        Self(Loc::new(l, r), s)
     }
 }
 
 #[derive(Debug)]
 pub struct FuncCallExpr(Loc, String, Vec<Box<dyn Expr>>);
-impl Expr for FuncCallExpr{
+impl Expr for FuncCallExpr {
     fn loc(&self) -> Loc {
         self.0
     }
 }
-impl FuncCallExpr{
-    pub fn new(l:usize, r:usize, name:String, args:Vec<Box<dyn Expr>>)->Self{
-        Self(Loc::new(l,r), name, args)
+impl FuncCallExpr {
+    pub fn new(l: usize, r: usize, name: String, args: Vec<Box<dyn Expr>>) -> Self {
+        Self(Loc::new(l, r), name, args)
     }
 }
 
 #[derive(Debug)]
-pub struct ReturnStmt(Loc,Option<Box<dyn Expr>>);
-impl Expr for ReturnStmt{
+pub struct ReturnExpr(Loc, Option<Box<dyn Expr>>);
+impl Expr for ReturnExpr {
     fn loc(&self) -> Loc {
         self.0
     }
 }
-impl ReturnStmt{
-    pub fn new(l:usize, r:usize, e:Option<Box<dyn Expr>>)->Self{
-        Self(Loc::new(l,r),e)
+impl ReturnExpr {
+    pub fn new(l: usize, r: usize, e: Option<Box<dyn Expr>>) -> Self {
+        Self(Loc::new(l, r), e)
     }
 }
 
-
 #[derive(Debug)]
-pub struct DeclVarExpr {
-    loc: Loc,
-    name: String,
-    var_type: Option<TypeRef>,
-    mutable: bool,
-    value: Box<dyn Expr>,
+pub struct VarDeclExpr {
+    pub loc: Loc,
+    pub name: String,
+    pub var_type: Option<TypeRef>,
+    pub mutable: bool,
+    pub value: Box<dyn Expr>,
 }
-impl Expr for DeclVarExpr {
+impl Expr for VarDeclExpr {
     fn loc(&self) -> Loc {
         self.loc
     }
 }
-impl DeclVarExpr {
+impl VarDeclExpr {
     pub fn new(
         l: usize,
         r: usize,
@@ -136,14 +137,6 @@ impl DeclVarExpr {
             mutable,
             value,
         }
-    }
-}
-impl TopLevelScopeDecl for DeclVarExpr {
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-    fn get_type(&self) -> &str {
-        &self.var_type.as_ref().unwrap().0
     }
 }
 

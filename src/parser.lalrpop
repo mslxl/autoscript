@@ -15,12 +15,13 @@ use crate::ast::{
     TriOpExpr,
     Opcode,
     UnaryOpcode,
-    ReturnStmt,
+    ReturnExpr,
+    ImportStmt,
     FuncCallExpr,
 
-    Func,
+    FuncDecl,
     TypeRef,
-    DeclVarExpr,
+    VarDeclExpr,
     TopLevelScopeDecl
 };
 
@@ -35,9 +36,10 @@ match {
 
 pub Program = <TopScopeElement*>;
 
-TopScopeElement:Box<dyn TopLevelScopeDecl> = {
-    <f:FuncDef> => Box::new(f) as Box<dyn TopLevelScopeDecl>,
-    <v:DeclVarExpr> OptN => v as Box<dyn TopLevelScopeDecl>,
+TopScopeElement:TopLevelScopeDecl = {
+    <f:FuncDef> => TopLevelScopeDecl::FuncDecl(f),
+    <v:VarDeclExpr> => TopLevelScopeDecl::VarDecl(v),
+    <i:Import> => TopLevelScopeDecl::Import(i),
 }
 
 
@@ -79,23 +81,23 @@ TypedArgs: (String, TypeRef, Option<Box<dyn Expr>>) ={
 
 
 
-FuncDef: Func = {
-    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" <block:ComposableExpr> => {
-        Func::new(l,block.loc().right,id, "unit".to_string(), args, block)
+FuncDef: Box<FuncDecl> = {
+    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" <block:ComposableExpr> OptN => {
+        Box::new(FuncDecl::new(l,block.loc().right,id, "unit".to_string(), args, block))
     },
-    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" "->" <return_type:Identifier> <block:ComposableExpr> => {
-        Func::new(l,block.loc().right,id, return_type, args, block)
+    <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" "->" <return_type:Identifier> <block:ComposableExpr> OptN => {
+        Box::new(FuncDecl::new(l,block.loc().right,id, return_type, args, block))
     }
 }
 
 // var decl
 
-DeclVarExpr: Box<DeclVarExpr> = {
+VarDeclExpr: Box<VarDeclExpr> = {
     <l:@L> "val" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
-        Box::new(DeclVarExpr::new(l, exp.loc().right, id, None,false, exp))
+        Box::new(VarDeclExpr::new(l, exp.loc().right, id, None,false, exp))
     },
     <l:@L> "var" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
-        Box::new(DeclVarExpr::new(l, exp.loc().right, id, None,true, exp))
+        Box::new(VarDeclExpr::new(l, exp.loc().right, id, None,true, exp))
     }
 }
 
@@ -167,16 +169,23 @@ Stmt: Box<dyn Expr> = {
 Expr = {
     LogicOrExpr,
     TermExpr,
-    <t:DeclVarExpr> => t as Box<dyn Expr>,
-    <t:FuncCallExpr> => t as Box<dyn Expr>,
+    <t:VarDeclExpr> => t as Box<dyn Expr>,
 };
 
 // ------
 // return
 // ------
 
-ReturnStmt: Box<ReturnStmt> = {
-    <l:@L> "return" <e:Expr?> <r:@R> NecN => Box::new(ReturnStmt::new(l,r, e))
+ReturnStmt: Box<ReturnExpr> = {
+    <l:@L> "return" <e:Expr?> <r:@R> NecN => Box::new(ReturnExpr::new(l,r, e))
+}
+
+// -------
+// import
+// -------
+
+Import: Box<ImportStmt> = {
+    <l:@L> "import" <id:Identifier> <r:@R> NecN => Box::new(ImportStmt::new(l,r,id))
 }
 
 
@@ -306,5 +315,6 @@ BaseExpr: Box<dyn Expr> = {
     <l:@L> <i:Identifier> <r:@R> => Box::new(IdentifierExpr::new(l,r,i)),
     "(" <Expr> ")",
     ControlFlow,
+    FuncCallExpr,
 };
 
