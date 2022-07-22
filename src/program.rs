@@ -1,15 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
-use lalrpop_util::{ParseError, lexer::Token};
+use lalrpop_util::{lexer::Token, ParseError};
 
-use crate::{ast::{FuncDecl, VarDeclExpr, TopLevelScopeDecl}, parser::ProgramParser};
-
+use crate::{
+    ast::{ClassDecl, FuncDecl, TopLevelScopeDecl, VarDeclExpr},
+    parser::ProgramParser,
+};
 
 #[derive(Debug)]
 pub struct Program {
     loaded_module: HashSet<String>,
-    decl_func: HashMap<String,FuncDecl>,
-    decl_var: HashMap<String,VarDeclExpr>,
+    decl_func: HashMap<String, FuncDecl>,
+    decl_var: HashMap<String, VarDeclExpr>,
+    decl_class: HashMap<String, ClassDecl>,
 }
 
 impl Program {
@@ -18,6 +21,7 @@ impl Program {
             loaded_module: HashSet::new(),
             decl_func: HashMap::new(),
             decl_var: HashMap::new(),
+            decl_class: HashMap::new(),
             //load_content: load_content_func,
         }
     }
@@ -29,15 +33,18 @@ impl Program {
         let ast = parser.parse(code)?;
         for i in ast {
             match i {
-                TopLevelScopeDecl::FuncDecl(f)=>{
+                TopLevelScopeDecl::FuncDecl(f) => {
                     self.decl_func.insert(f.name.clone(), *f);
                 }
-                TopLevelScopeDecl::Import(s)=>{
-                    todo!()
-                }
-                TopLevelScopeDecl::VarDecl(v)=>{
-                    self.decl_var.insert(v.name.clone(),*v);
 
+                TopLevelScopeDecl::Import(s) => todo!(),
+
+                TopLevelScopeDecl::VarDecl(v) => {
+                    self.decl_var.insert(v.name.clone(), *v);
+                }
+
+                TopLevelScopeDecl::ClassDecl(c) => {
+                    self.decl_class.insert(c.name.clone(), *c);
                 }
             }
         }

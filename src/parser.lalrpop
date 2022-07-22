@@ -18,6 +18,9 @@ use crate::ast::{
     ReturnExpr,
     ImportStmt,
     FuncCallExpr,
+    ClassLevelScopeDecl,
+    ClassDecl,
+    MemberAccessExpr,
 
     FuncDecl,
     TypeRef,
@@ -38,8 +41,9 @@ pub Program = <TopScopeElement*>;
 
 TopScopeElement:TopLevelScopeDecl = {
     <f:FuncDef> => TopLevelScopeDecl::FuncDecl(f),
-    <v:VarDeclExpr> => TopLevelScopeDecl::VarDecl(v),
+    <v:VarDef> => TopLevelScopeDecl::VarDecl(v),
     <i:Import> => TopLevelScopeDecl::Import(i),
+    <c:ClassDecl> => TopLevelScopeDecl::ClassDecl(c),
 }
 
 
@@ -79,8 +83,6 @@ TypedArgs: (String, TypeRef, Option<Box<dyn Expr>>) ={
     <id:Identifier> ":" <t:Identifier> "=" <v:Expr> => (id, TypeRef(t), Some(v)),
 }
 
-
-
 FuncDef: Box<FuncDecl> = {
     <l:@L> "fn" <id:Identifier> "(" <args:Comma<TypedArgs>> ")" <block:ComposableExpr> OptN => {
         Box::new(FuncDecl::new(l,block.loc().right,id, "unit".to_string(), args, block))
@@ -92,14 +94,41 @@ FuncDef: Box<FuncDecl> = {
 
 // var decl
 
+VarDef: Box<VarDeclExpr> = {
+    <VarDeclExpr> OptN 
+}
+
 VarDeclExpr: Box<VarDeclExpr> = {
     <l:@L> "val" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
-        Box::new(VarDeclExpr::new(l, exp.loc().right, id, None,false, exp))
+        let type_name = t.map(|x| TypeRef(x));
+        Box::new(VarDeclExpr::new(l, exp.loc().right, id, type_name,false, exp))
     },
     <l:@L> "var" <id:Identifier> <t:(":" <Identifier>)?> "=" <exp:Expr> => {
-        Box::new(VarDeclExpr::new(l, exp.loc().right, id, None,true, exp))
+        let type_name = t.map(|x| TypeRef(x));
+        Box::new(VarDeclExpr::new(l, exp.loc().right, id, type_name,true, exp))
+    },
+    <l:@L> "val" <id:Identifier> <t:(":" <Identifier>)> <r:@R>  => {
+        Box::new(VarDeclExpr::new_novalue(l, r, id, Some(TypeRef(t)),false))
+    },
+    <l:@L> "var" <id:Identifier> <t:(":" <Identifier>)> <r:@R> => {
+        Box::new(VarDeclExpr::new_novalue(l, r, id, Some(TypeRef(t)),true))
     }
 }
+
+// ---------
+// class decl
+// ---------
+
+ClassScopeElement:ClassLevelScopeDecl = {
+    <f:FuncDef> => ClassLevelScopeDecl::FuncDecl(f),
+    <v:VarDef> => ClassLevelScopeDecl::VarDecl(v),
+};
+
+ClassDecl: Box<ClassDecl> = {
+    <l:@L> "class" <id:Identifier> "{" OptN <e:ClassScopeElement*> "}" OptN <r:@R> => {
+        Box::new(ClassDecl::new(l,r,id, e))
+    }
+};
 
 
 // --------
@@ -194,7 +223,7 @@ Import: Box<ImportStmt> = {
 // ---------
 
 FuncCallExpr: Box<FuncCallExpr> = {
-    <l:@L> <id:Identifier> "(" <args:Comma<Expr>> ")" <r:@R> => Box::new(FuncCallExpr::new(l,r,id,args))
+    <l:@L> <m:MemberAccessExpr> "(" <args:Comma<Expr>> ")" <r:@R> => Box::new(FuncCallExpr::new(l,r,m,args))
 }
 
 
@@ -312,9 +341,14 @@ BaseExpr: Box<dyn Expr> = {
     <l:@L> <f:Float> <r:@R> => Box::new(FloatConstExpr::new(l,r,f)),
     <l:@L> <s:Str> <r:@R>   => Box::new(StrConstExpr::new(l,r,s)),
     <l:@L> <c:Char> <r:@R>  => Box::new(CharConstExpr::new(l,r,c)),
-    <l:@L> <i:Identifier> <r:@R> => Box::new(IdentifierExpr::new(l,r,i)),
     "(" <Expr> ")",
     ControlFlow,
     FuncCallExpr,
+    MemberAccessExpr,
 };
 
+
+MemberAccessExpr: Box<dyn Expr> = {
+    <l:@L> <i:Identifier> <r:@R> => Box::new(IdentifierExpr::new(l,r,i)),
+    <l:@L> <p:MemberAccessExpr> "." <i:Identifier> <r:@R> => Box::new(MemberAccessExpr::new(l,r,p,i))
+}

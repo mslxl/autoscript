@@ -1,0 +1,11 @@
+class Student{
+    val name:str
+    val age:int
+    fn hello(){
+        print("hello" + this.name.cap())
+    }
+}
+
+fn main(){
+    print("test file")
+}

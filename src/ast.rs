@@ -1,13 +1,17 @@
-use std::{
-    fmt::Debug
-};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 #[derive(Debug)]
 pub enum TopLevelScopeDecl {
     FuncDecl(Box<FuncDecl>),
     VarDecl(Box<VarDeclExpr>),
     Import(Box<ImportStmt>),
+    ClassDecl(Box<ClassDecl>),
 }
+pub enum ClassLevelScopeDecl {
+    FuncDecl(Box<FuncDecl>),
+    VarDecl(Box<VarDeclExpr>),
+}
+
 pub trait Expr: Debug {
     fn loc(&self) -> Loc;
 }
@@ -75,6 +79,36 @@ impl FuncDecl {
 }
 
 #[derive(Debug)]
+pub struct ClassDecl {
+    pub loc: Loc,
+    pub name: String,
+    pub fields: HashMap<String, VarDeclExpr>,
+    pub methods: HashMap<String, FuncDecl>,
+}
+
+impl ClassDecl {
+    pub fn new(l: usize, r: usize, name: String, element: Vec<ClassLevelScopeDecl>) -> Self {
+        let mut decl = Self {
+            loc: Loc::new(l, r),
+            name: name,
+            fields: HashMap::new(),
+            methods: HashMap::new(),
+        };
+        for i in element {
+            match i {
+                ClassLevelScopeDecl::FuncDecl(f) => {
+                    decl.methods.insert(f.name.clone(), *f);
+                }
+                ClassLevelScopeDecl::VarDecl(v) => {
+                    decl.fields.insert(v.name.clone(), *v);
+                }
+            }
+        }
+        decl
+    }
+}
+
+#[derive(Debug)]
 pub struct ImportStmt(Loc, String);
 impl ImportStmt {
     pub fn new(l: usize, r: usize, s: String) -> Self {
@@ -83,14 +117,14 @@ impl ImportStmt {
 }
 
 #[derive(Debug)]
-pub struct FuncCallExpr(Loc, String, Vec<Box<dyn Expr>>);
+pub struct FuncCallExpr(Loc, Box<dyn Expr>, Vec<Box<dyn Expr>>);
 impl Expr for FuncCallExpr {
     fn loc(&self) -> Loc {
         self.0
     }
 }
 impl FuncCallExpr {
-    pub fn new(l: usize, r: usize, name: String, args: Vec<Box<dyn Expr>>) -> Self {
+    pub fn new(l: usize, r: usize, name: Box<dyn Expr>, args: Vec<Box<dyn Expr>>) -> Self {
         Self(Loc::new(l, r), name, args)
     }
 }
@@ -114,7 +148,7 @@ pub struct VarDeclExpr {
     pub name: String,
     pub var_type: Option<TypeRef>,
     pub mutable: bool,
-    pub value: Box<dyn Expr>,
+    pub value: Option<Box<dyn Expr>>,
 }
 impl Expr for VarDeclExpr {
     fn loc(&self) -> Loc {
@@ -122,6 +156,21 @@ impl Expr for VarDeclExpr {
     }
 }
 impl VarDeclExpr {
+    pub fn new_novalue(
+        l: usize,
+        r: usize,
+        name: String,
+        var_type: Option<TypeRef>,
+        mutable: bool,
+    ) -> Self {
+        Self {
+            loc: Loc::new(l, r),
+            name,
+            var_type,
+            mutable,
+            value: None,
+        }
+    }
     pub fn new(
         l: usize,
         r: usize,
@@ -131,11 +180,8 @@ impl VarDeclExpr {
         value: Box<dyn Expr>,
     ) -> Self {
         Self {
-            loc: Loc::new(l, r),
-            name,
-            var_type,
-            mutable,
-            value,
+            value: Some(value),
+            ..Self::new_novalue(l, r, name, var_type, mutable)
         }
     }
 }
@@ -236,6 +282,30 @@ impl Expr for CharConstExpr {
 impl CharConstExpr {
     pub fn new(l: usize, r: usize, value: char) -> Self {
         Self(Loc::new(l, r), value)
+    }
+}
+
+#[derive(Debug)]
+
+pub struct  MemberAccessExpr {
+    pub loc:Loc,
+    pub parent: Box<dyn Expr>,
+    pub target: String,
+}
+
+impl Expr for MemberAccessExpr {
+    fn loc(&self) -> Loc {
+        self.loc
+    }
+}
+
+impl MemberAccessExpr {
+    pub fn new(l: usize, r: usize, parent: Box<dyn Expr>, target: String) -> Self {
+        Self {
+            loc: Loc::new(l, r),
+            parent: parent,
+            target: target,
+        }
     }
 }
 
