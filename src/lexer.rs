@@ -75,8 +75,11 @@ impl Lexer {
                 self.inc_line();
             }
             self.pos += 1;
-
-            ch = self.code[self.pos];
+            if self.pos < self.code.len() {
+                ch = self.code[self.pos];
+            }else{
+                break;
+            }
         }
     }
 
