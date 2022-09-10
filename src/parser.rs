@@ -18,7 +18,8 @@ impl Parser {
     /*
     S      -> add
     add    -> add + mul | add - mul | mul
-    mul    -> mul * integer | mul / integer | integer
+    mul    -> mul * num | mul / num | num
+    num    -> integer | (add)
     */
     fn get_current_line(&self) -> String {
         self.lexer.get_current_line()
@@ -40,19 +41,30 @@ impl Parser {
         }
     }
 
+    fn error_expect_unsatisfying(&self, expect: String) -> Box<dyn Error> {
+        match &self.lexer.tok {
+            Err(e) => Box::new((*e).clone()),
+            Ok(tok) => {
+                let pos = tok.pos();
+                let tok = (*tok).clone();
+                let err = ParseError::new(Some(expect),
+                                          pos.line,
+                                          pos.pos,
+                                          self.get_current_line(),
+                                          None, tok);
+                Box::new(err)
+            }
+        }
+    }
+
 
     pub fn parse(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         match self.lexer.tok.as_ref().unwrap() {
-             Tok::TokEOF(_) => Err(self.error_unexpect()),
-             _ => Ok(self.add()?)
-         }
+            Tok::TokEOF(_) => Err(self.error_unexpect()),
+            _ => Ok(self.add()?)
+        }
     }
-    /*
-    add -> add + mul | add - mul | mul
 
-    add -> mul add'
-    add'-> + mul add' | - mul add' | ""
-     */
     fn add(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         let mut left = self.mul()?;
 
@@ -69,21 +81,14 @@ impl Parser {
         Ok(left)
     }
 
-    /*
-    mul -> mul * integer | mul / integer | integer
-
-    mul -> integer mul'
-    mul' -> * integer mul' | / integer mul' | ""
-     */
-
     fn mul(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        let mut left = self.integer()?;
+        let mut left = self.num()?;
 
         while let Tok::TokOp(ref op, _) = self.lexer.tok.as_ref().unwrap() {
             if op == "*" || op == "/" {
                 let op = op.clone();
                 self.lexer.advance();
-                let right = self.integer()?;
+                let right = self.num()?;
                 left = ExprNode::Op(Box::new(left), op, Box::new(right));
             } else {
                 break;
@@ -92,16 +97,30 @@ impl Parser {
         Ok(left)
     }
 
+    fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {
+        if let Ok(Tok::TokLeftParenthesis(_)) = self.lexer.tok.as_ref() {
+            self.lexer.advance();
+            let expr = self.add()?;
+            if let Ok(Tok::TokRightParenthesis(_)) = self.lexer.tok {} else {
+                self.error_expect_unsatisfying(")".to_string());
+            }
+            Ok(expr)
+        } else {
+            self.integer()
+        }
+    }
+
+
     fn integer(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         if let Ok(tok) = self.lexer.tok.as_ref() {
             if let Tok::TokInteger(integer, _) = tok {
                 let integer = *integer;
                 self.lexer.advance();
                 Ok(ExprNode::Integer(integer))
-            } else{
+            } else {
                 Err(self.error_unexpect())
             }
-        }else{
+        } else {
             Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
         }
     }

@@ -20,6 +20,8 @@ impl TokPos {
 pub enum Tok {
     TokInteger(i32, TokPos),
     TokOp(String, TokPos),
+    TokLeftParenthesis(TokPos),
+    TokRightParenthesis(TokPos),
     TokEOF(TokPos),
 }
 
@@ -29,6 +31,8 @@ impl Tok {
             Tok::TokInteger(_, pos) => pos,
             Tok::TokOp(_, pos) => pos,
             Tok::TokEOF(pos) => pos,
+            Tok::TokLeftParenthesis(pos) => pos,
+            Tok::TokRightParenthesis(pos) => pos,
         }
     }
 }
@@ -78,11 +82,11 @@ impl Lexer {
 
     pub fn get_current_line(&self) -> String {
         let mut begin = self.pos;
-        while begin-1 > 0 && (self.code[begin-1] != '\r' || self.code[begin-1] != '\n') {
+        while begin - 1 > 0 && (self.code[begin - 1] != '\r' || self.code[begin - 1] != '\n') {
             begin -= 1;
         }
         let mut end = self.pos;
-        while end + 1< self.code.len() - 1 && (self.code[end + 1] != '\r' || self.code[end+1] != '\n') {
+        while end + 1 < self.code.len() - 1 && (self.code[end + 1] != '\r' || self.code[end + 1] != '\n') {
             end += 1;
         }
         (&self.code[begin..end]).iter().collect::<String>()
@@ -119,6 +123,15 @@ impl Lexer {
         }
     }
 
+    fn lex_parenthesis(&mut self) {
+        self.tok = match self.code[self.pos] {
+            '(' => Ok(Tok::TokLeftParenthesis(TokPos::from(self))),
+            ')' => Ok(Tok::TokRightParenthesis(TokPos::from(self))),
+            _ => Err(self.err_here("Expect a parenthesis here".to_string()))
+        };
+        self.pos += 1;
+    }
+
 
     pub fn advance(&mut self) {
         self.eat_space();
@@ -132,6 +145,9 @@ impl Lexer {
             return;
         } else if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' {
             self.lex_op();
+            return;
+        } else if ch == '(' || ch == ')' {
+            self.lex_parenthesis();
             return;
         } else {
             self.tok = Err(self.err_here("Unrecognised token here".to_string()))
