@@ -1,3 +1,8 @@
-/target/
 /.idea/
-/makefile
+/target/
+
+*.exe
+*.o
+*.obj
+*.s
+*.log
