@@ -1,6 +1,7 @@
-use std::str::Chars;
+use std::fmt::{Display, Formatter};
+use crate::error::LexerError;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct TokPos {
     pub line: usize,
     pub pos: usize,
@@ -15,16 +16,26 @@ impl TokPos {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tok {
     TokInteger(i32, TokPos),
     TokOp(String, TokPos),
-    TokEOF,
+    TokEOF(TokPos),
+}
+
+impl Tok {
+    pub fn pos(&self) -> &TokPos {
+        match self {
+            Tok::TokInteger(_, pos) => pos,
+            Tok::TokOp(_, pos) => pos,
+            Tok::TokEOF(pos) => pos,
+        }
+    }
 }
 
 pub struct Lexer {
     pub code: Vec<char>,
-    pub tok: Tok,
+    pub tok: Result<Tok, LexerError>,
     pos: usize,
 
     line: usize,
@@ -37,7 +48,7 @@ impl Lexer {
     pub fn new(code: &str) -> Self {
         let mut lexer = Lexer {
             pos: 0,
-            tok: Tok::TokEOF,
+            tok: Ok(Tok::TokEOF(TokPos { line: 0, pos: 0 })),
             line: 1,
             line_begin_pos: 0,
             code: code.chars().collect::<Vec<_>>(),
@@ -65,9 +76,21 @@ impl Lexer {
         }
     }
 
+    pub fn get_current_line(&self) -> String {
+        let mut begin = self.pos;
+        while begin-1 > 0 && (self.code[begin-1] != '\r' || self.code[begin-1] != '\n') {
+            begin -= 1;
+        }
+        let mut end = self.pos;
+        while end + 1< self.code.len() - 1 && (self.code[end + 1] != '\r' || self.code[end+1] != '\n') {
+            end += 1;
+        }
+        (&self.code[begin..end]).iter().collect::<String>()
+    }
+
     fn lex_number(&mut self) {
         if !self.code[self.pos].is_ascii_digit() {
-            panic!("{} is not a number", self.code[self.pos]);
+            self.tok = Err(LexerError::new(None, self.line, self.line_begin_pos, self.get_current_line(), "Expect a number here".to_string()))
         }
         let begin = self.pos;
         self.pos += 1;
@@ -78,17 +101,21 @@ impl Lexer {
 
         let number: i32 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
 
-        self.tok = Tok::TokInteger(number, TokPos::from(self));
+        self.tok = Ok(Tok::TokInteger(number, TokPos::from(self)));
+    }
+
+    fn err_here(&self, msg: String) -> LexerError {
+        LexerError::new(None, self.line, self.line_begin_pos, self.get_current_line(), msg)
     }
 
     fn lex_op(&mut self) {
         let ch = self.code[self.pos];
         if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' {
-            self.tok = Tok::TokOp(ch.to_string(), TokPos::from(self));
+            self.tok = Ok(Tok::TokOp(ch.to_string(), TokPos::from(self)));
             self.pos += 1;
             return;
         } else {
-            panic!("{} is not a operator", ch);
+            self.tok = Err(self.err_here("Expect a operator here".to_string()));
         }
     }
 
@@ -96,7 +123,7 @@ impl Lexer {
     pub fn advance(&mut self) {
         self.eat_space();
         if self.pos >= self.code.len() {
-            self.tok = Tok::TokEOF;
+            self.tok = Ok(Tok::TokEOF(TokPos::from(self)));
             return;
         }
         let ch = self.code[self.pos];
@@ -106,6 +133,8 @@ impl Lexer {
         } else if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' {
             self.lex_op();
             return;
+        } else {
+            self.tok = Err(self.err_here("Unrecognised token here".to_string()))
         }
     }
 }
