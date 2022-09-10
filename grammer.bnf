@@ -1,0 +1,6 @@
+S      ::= add
+add    ::= add '+' mul | add '-' mul | mul
+mul    ::= mul '*' unary | mul '/' unary | unary
+
+unary  ::= '-' num | '+' num | num
+num    ::= integer | (add)

@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::ops::Deref;
 use crate::error::ParseError;
 use crate::ast::ExprNode;
 use crate::lexer::Lexer;
@@ -15,12 +14,7 @@ impl Parser {
             lexer
         }
     }
-    /*
-    S      -> add
-    add    -> add + mul | add - mul | mul
-    mul    -> mul * num | mul / num | num
-    num    -> integer | (add)
-    */
+
     fn get_current_line(&self) -> String {
         self.lexer.get_current_line()
     }
@@ -82,19 +76,39 @@ impl Parser {
     }
 
     fn mul(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        let mut left = self.num()?;
+        let mut left = self.unary()?;
 
         while let Tok::TokOp(ref op, _) = self.lexer.tok.as_ref().unwrap() {
             if op == "*" || op == "/" {
                 let op = op.clone();
                 self.lexer.advance();
-                let right = self.num()?;
+                let right = self.unary()?;
                 left = ExprNode::Op(Box::new(left), op, Box::new(right));
             } else {
                 break;
             }
         }
         Ok(left)
+    }
+
+    fn unary(&mut self) -> Result<ExprNode, Box<dyn Error>> {
+        match self.lexer.tok.as_ref() {
+            Err(e) => Err(Box::new((*e).clone())),
+            Ok(tok) => {
+                if let Tok::TokOp(op, _) = tok {
+                    if op == "+" || op == "-" {
+                        let op = op.clone();
+                        self.lexer.advance();
+                        let expr = self.num()?;
+                        Ok(ExprNode::UnaryOp(op, Box::new(expr)))
+                    }else{
+                        Err(self.error_unexpect())
+                    }
+                }else{
+                    self.num()
+                }
+            }
+        }
     }
 
     fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {

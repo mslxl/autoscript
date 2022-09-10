@@ -1,4 +1,3 @@
-use std::fmt::{Display, Formatter};
 use crate::error::LexerError;
 
 #[derive(Debug, Copy, Clone)]

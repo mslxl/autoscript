@@ -52,8 +52,8 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let cursor = "^ ";
         let error_msg =  match &self.expect {
-            Some(expectTok) =>
-                format!("Unexpected token, expect {:?}, actual {:?}", expectTok, self.actual),
+            Some(expect_tok) =>
+                format!("Unexpected token, expect {:?}, actual {:?}", expect_tok, self.actual),
             None =>
                 format!("Unexpected token: {actual:?}", actual = self.actual)
         };
