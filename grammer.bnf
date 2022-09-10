@@ -1,4 +1,9 @@
-S      ::= add
+S      ::= expr
+expr   ::= equality
+
+equality ::= relational "==" relational | relational "!=" relational | relational
+relational ::= add "<" add | add "<=" add | add ">" add | add ">=" add | add
+
 add    ::= add '+' mul | add '-' mul | mul
 mul    ::= mul '*' unary | mul '/' unary | unary
 

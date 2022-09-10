@@ -55,8 +55,59 @@ impl Parser {
     pub fn parse(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         match self.lexer.tok.as_ref().unwrap() {
             Tok::TokEOF(_) => Err(self.error_unexpect()),
-            _ => Ok(self.add()?)
+            _ => Ok(self.expr()?)
         }
+    }
+
+    fn expr(&mut self) -> Result<ExprNode, Box<dyn Error>> {
+        self.equality()
+    }
+    fn equality(&mut self) -> Result<ExprNode, Box<dyn Error>>{
+        let left = self.relational()?;
+        let op = match self.lexer.tok.as_ref() {
+            Err(e) => {
+                let err:Box<dyn Error> = Box::new((*e).clone());
+                Err(err)
+            },
+            Ok(op) => if let Tok::TokOp(op, _) = op {
+                let op: &str = op;
+                match op {
+                    "==" => Ok("=="),
+                    "!=" => Ok("!="),
+                    _ => return Ok(left)
+                }
+            }else {
+                return Ok(left);
+            }
+        }?;
+        self.lexer.advance();
+        let right = self.relational()?;
+        Ok(ExprNode::Op(Box::new(left), String::from(op), Box::new(right)))
+    }
+
+    fn relational(&mut self) -> Result<ExprNode, Box<dyn Error>>{
+        let left = self.add()?;
+        let op = match self.lexer.tok.as_ref() {
+            Err(e) => {
+                let err:Box<dyn Error> = Box::new((*e).clone());
+                Err(err)
+            },
+            Ok(op) => if let Tok::TokOp(op, _) = op {
+                let op: &str = op;
+                match op {
+                    "<" => Ok("<"),
+                    ">" => Ok(">"),
+                    ">=" => Ok(">="),
+                    "<=" => Ok("<="),
+                    _ => return Ok(left)
+                }
+            }else {
+                return Ok(left)
+            }
+        }?;
+        self.lexer.advance();
+        let right = self.add()?;
+        Ok(ExprNode::Op(Box::new(left),String::from(op), Box::new(right)))
     }
 
     fn add(&mut self) -> Result<ExprNode, Box<dyn Error>> {

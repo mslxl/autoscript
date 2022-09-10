@@ -50,4 +50,8 @@ fn main() {
     test_expr("1---1", true);
     test_expr("1+3*(2--1)", false);
     test_expr("1+-(2*3)", false);
+
+    test_expr("1 < 2" ,false);
+    test_expr("1 <= 2" ,false);
+    test_expr("1 <= 2 == 3 > (2 - 1 * (4+2))" ,false);
 }

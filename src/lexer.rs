@@ -1,3 +1,4 @@
+use crate::ast::ExprNode;
 use crate::error::LexerError;
 
 #[derive(Debug, Copy, Clone)]
@@ -76,7 +77,7 @@ impl Lexer {
             self.pos += 1;
             if self.pos < self.code.len() {
                 ch = self.code[self.pos];
-            }else{
+            } else {
                 break;
             }
         }
@@ -84,11 +85,14 @@ impl Lexer {
 
     pub fn get_current_line(&self) -> String {
         let mut begin = self.pos;
+        if begin >= self.code.len() {
+            begin = self.code.len() - 1;
+        }
         while begin > 0 && (self.code[begin] != '\r' || self.code[begin] != '\n') {
             begin -= 1;
         }
         let mut end = self.pos;
-        while end  < self.code.len()  && (self.code[end] != '\r' || self.code[end] != '\n') {
+        while end < self.code.len() && (self.code[end] != '\r' || self.code[end] != '\n') {
             end += 1;
         }
         (&self.code[begin..end]).iter().collect::<String>()
@@ -134,6 +138,74 @@ impl Lexer {
         self.pos += 1;
     }
 
+    fn lex_relational(&mut self) {
+        self.tok = if self.pos + 1 < self.code.len() {
+            match self.code[self.pos] {
+                '=' => match self.code[self.pos + 1] {
+                    '=' => {
+                        self.pos += 2;
+                        Ok(Tok::TokOp(String::from("=="), TokPos::from(self)))
+                    }
+                    _ => {
+                        self.pos += 1;
+                        Ok(Tok::TokOp(String::from("="), TokPos::from(self)))
+                    }
+                },
+                '!' => match self.code[self.pos + 1] {
+                    '=' => {
+                        self.pos += 2;
+                        Ok(Tok::TokOp(String::from("!="), TokPos::from(self)))
+                    }
+                    _ => {
+                        self.pos += 1;
+                        Ok(Tok::TokOp(String::from("!"), TokPos::from(self)))
+                    }
+                },
+                '>' => match self.code[self.pos + 1] {
+                    '=' => {
+                        self.pos += 2;
+                        Ok(Tok::TokOp(String::from(">="), TokPos::from(self)))
+                    }
+                    _ => {
+                        self.pos += 1;
+                        Ok(Tok::TokOp(String::from(">"), TokPos::from(self)))
+                    }
+                },
+                '<' => match self.code[self.pos + 1] {
+                    '=' => {
+                        self.pos += 2;
+                        Ok(Tok::TokOp(String::from("<="), TokPos::from(self)))
+                    }
+                    _ => {
+                        self.pos += 1;
+                        Ok(Tok::TokOp(String::from("<"), TokPos::from(self)))
+                    }
+                },
+                _ => Err(self.err_here("Expect a relational op here".to_string()))
+            }
+        } else {
+            match self.code[self.pos] {
+                '=' => {
+                    self.pos += 1;
+                    Ok(Tok::TokOp(String::from("="), TokPos::from(self)))
+                }
+                '!' => {
+                    self.pos += 1;
+                    Ok(Tok::TokOp(String::from("!"), TokPos::from(self)))
+                }
+                '>' => {
+                    self.pos += 1;
+                    Ok(Tok::TokOp(String::from(">"), TokPos::from(self)))
+                }
+                '<' => {
+                    self.pos += 1;
+                    Ok(Tok::TokOp(String::from("<="), TokPos::from(self)))
+                }
+                _ => Err(self.err_here("Expect a relational op here".to_string()))
+            }
+        }
+    }
+
 
     pub fn advance(&mut self) {
         self.eat_space();
@@ -150,6 +222,9 @@ impl Lexer {
             return;
         } else if ch == '(' || ch == ')' {
             self.lex_parenthesis();
+            return;
+        } else if ch == '=' || ch == '<' || ch == '>' || ch == '!' {
+            self.lex_relational();
             return;
         } else {
             self.tok = Err(self.err_here("Unrecognised token here".to_string()))
