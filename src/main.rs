@@ -47,7 +47,7 @@ fn main() {
     test_expr("1 + 3 * -2" , false);
     test_expr("1 ** 2", true);
     test_expr("1--1", false);
-    test_expr("1---1", true);
+    test_expr("1---1", false);
     test_expr("1+3*(2--1)", false);
     test_expr("1+-(2*3)", false);
 

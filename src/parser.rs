@@ -150,29 +150,33 @@ impl Parser {
                     if op == "+" || op == "-" {
                         let op = op.clone();
                         self.lexer.advance();
-                        let expr = self.num()?;
+                        let expr = self.unary()?;
                         Ok(ExprNode::UnaryOp(op, Box::new(expr)))
                     }else{
-                        Err(self.error_unexpect())
+                        self.primary()
                     }
                 }else{
-                    self.num()
+                    self.primary()
                 }
             }
         }
     }
 
-    fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {
+    fn primary(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         if let Ok(Tok::TokLeftParenthesis(_)) = self.lexer.tok.as_ref() {
             self.lexer.advance();
-            let expr = self.add()?;
+            let expr = self.expr()?;
             if let Ok(Tok::TokRightParenthesis(_)) = self.lexer.tok {} else {
                 self.error_expect_unsatisfying(")".to_string());
             }
             Ok(expr)
         } else {
-            self.integer()
+            self.num()
         }
+    }
+
+    fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {
+        self.integer()
     }
 
 
