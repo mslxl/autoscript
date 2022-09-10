@@ -84,11 +84,11 @@ impl Lexer {
 
     pub fn get_current_line(&self) -> String {
         let mut begin = self.pos;
-        while begin - 1 > 0 && (self.code[begin - 1] != '\r' || self.code[begin - 1] != '\n') {
+        while begin > 0 && (self.code[begin] != '\r' || self.code[begin] != '\n') {
             begin -= 1;
         }
         let mut end = self.pos;
-        while end + 1 < self.code.len() - 1 && (self.code[end + 1] != '\r' || self.code[end + 1] != '\n') {
+        while end  < self.code.len()  && (self.code[end] != '\r' || self.code[end] != '\n') {
             end += 1;
         }
         (&self.code[begin..end]).iter().collect::<String>()
