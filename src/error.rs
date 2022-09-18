@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use crate::Tok;
+use crate::frontend::lexer::Tok;
 
 #[derive(Debug,Clone)]
 pub struct LexerError {

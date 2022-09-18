@@ -1,8 +1,10 @@
 use std::error::Error;
 use crate::error::ParseError;
-use crate::ast::ExprNode;
-use crate::lexer::Lexer;
-use crate::Tok;
+
+
+use crate::{Lexer};
+use crate::frontend::ast::ExprNode;
+use crate::frontend::lexer::Tok;
 
 pub struct Parser {
     lexer: Lexer,
