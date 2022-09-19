@@ -132,7 +132,7 @@ impl Parser {
         let mut left = self.unary()?;
 
         while let Tok::TokOp(ref op, _) = self.lexer.tok.as_ref().unwrap() {
-            if op == "*" || op == "/" {
+            if op == "*" || op == "/" || op == "%" {
                 let op = op.clone();
                 self.lexer.advance();
                 let right = self.unary()?;
@@ -168,7 +168,9 @@ impl Parser {
         if let Ok(Tok::TokLeftParenthesis(_)) = self.lexer.tok.as_ref() {
             self.lexer.advance();
             let expr = self.expr()?;
-            if let Ok(Tok::TokRightParenthesis(_)) = self.lexer.tok {} else {
+            if let Ok(Tok::TokRightParenthesis(_)) = self.lexer.tok {
+                self.lexer.advance();
+            } else {
                 self.error_expect_unsatisfying(")".to_string());
             }
             Ok(expr)

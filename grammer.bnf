@@ -5,7 +5,7 @@ equality ::= relational "==" relational | relational "!=" relational | relationa
 relational ::= add "<" add | add "<=" add | add ">" add | add ">=" add | add
 
 add    ::= add '+' mul | add '-' mul | mul
-mul    ::= mul '*' unary | mul '/' unary | unary
+mul    ::= mul '*' unary | mul '/' unary | mul '%' unary | unary
 
 unary  ::= '-' unary | '+' unary | primary
 primary::= (expr) | num

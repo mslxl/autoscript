@@ -1,18 +1,82 @@
 
 use crate::frontend::ast::ExprNode;
-use crate::vm::instr::Instructions;
-struct CodeGen;
+use crate::vm::instr::{Instr, Instructions};
+pub struct CodeGen;
 
-struct CodeGenInfo{
-    instr: Instructions
+#[derive(Eq, PartialEq)]
+enum  CodeGenTy{
+    Int,
+    Float,
+}
+
+pub struct CodeGenInfo{
+    pub instr: Instructions,
+    ty: CodeGenTy
 }
 
 impl CodeGen{
-    fn new() -> Self{
+    pub fn new() -> Self{
         CodeGen
     }
 
-    fn translate_expr(expr:ExprNode) -> Instructions{
-        todo!()
+    pub fn translate_expr(&mut self, expr:ExprNode) -> CodeGenInfo{
+        match expr{
+            ExprNode::Integer(integer) => CodeGenInfo{
+                instr: vec![Instr::IPush(integer)].into(),
+                ty: CodeGenTy::Int
+            },
+            ExprNode::Op(left, op, right) => {
+                let left_expr = self.translate_expr(*left);
+                let right_expr = self.translate_expr(*right);
+                if left_expr.ty == CodeGenTy::Int && right_expr.ty == CodeGenTy::Int{
+                    match op.as_str(){
+                        "+" => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::IAdd].into(),
+                            ty: CodeGenTy::Int
+                        },
+                        "-" => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::ISub].into(),
+                            ty: CodeGenTy::Int
+                        },
+                        "*" => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::IMul].into(),
+                            ty: CodeGenTy::Int
+                        },
+                        "/" => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::IDiv].into(),
+                            ty: CodeGenTy::Int
+                        },
+                        "%" => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::IRem].into(),
+                            ty: CodeGenTy::Int
+                        },
+                        _ => panic!()
+                    }
+                }else {
+                    todo!()
+                }
+            }
+            ExprNode::UnaryOp(op, expr)=>{
+                let sub_expr = self.translate_expr(*expr);
+                match op.as_str() {
+                    "+" => CodeGenInfo{
+                        instr: vec![].into(),
+                        ty: sub_expr.ty
+                    },
+                    "-" => {
+                        match sub_expr.ty {
+                            CodeGenTy::Int => CodeGenInfo{
+                                instr: sub_expr.instr + vec![Instr::INeg].into(),
+                                ty: CodeGenTy::Int
+                            },
+                            CodeGenTy::Float => todo!(),
+                            _ => panic!()
+                        }
+                    }
+                    _ => panic!("Unexpected operation: {}", op)
+                }
+            }
+            _ => todo!()
+        }
     }
 }
