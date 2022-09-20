@@ -61,6 +61,32 @@ impl Parser {
         }
     }
 
+    fn function_def(&mut self) -> Result<(),Box<dyn Error>> {
+        let mut private_flag = false;
+        if let Ok(Tok::TokKwd(kwd, _)) = self.lexer.tok.as_ref() {
+            private_flag = kwd == "priv";
+            if private_flag {
+                self.lexer.advance()
+            }
+        }else{
+            return Err(self.error_unexpect())
+        }
+        if let Ok(Tok::TokKwd(String::from("fn"), _)) = self.lexer.tok.as_ref() {
+           self.lexer.advance();
+        }else{
+            return Err(self.error_unexpect())
+        }
+
+        let function_name = if let Ok(Tok::TokID(id, _)) = self.lexer.tok.as_ref() {
+            id.to_string()
+        }else{
+            return Err(self.error_unexpect())
+        }
+
+        self.lexer.advance(); //todo skip ()
+        self.lexer.advance();
+    }
+
     fn expr(&mut self) -> Result<ExprNode, Box<dyn Error>> {
         self.equality()
     }

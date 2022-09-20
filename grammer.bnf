@@ -10,3 +10,6 @@ mul    ::= mul '*' unary | mul '/' unary | mul '%' unary | unary
 unary  ::= '-' unary | '+' unary | primary
 primary::= (expr) | num
 num    ::= integer | float
+
+
+function_def ::= "fn" identifity "(" ")" "{" expr "\n" "}"

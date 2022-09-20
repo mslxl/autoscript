@@ -1,4 +1,6 @@
-
+use std::borrow::Borrow;
+use std::collections::HashSet;
+use lazy_static::lazy_static;
 use crate::error::LexerError;
 
 #[derive(Debug, Copy, Clone)]
@@ -23,7 +25,12 @@ pub enum Tok {
     TokOp(String, TokPos),
     TokLeftParenthesis(TokPos),
     TokRightParenthesis(TokPos),
+    TokLeftBrace(TokPos),
+    TokRightBrace(TokPos),
+    TokNextLine(TokPos),
     TokEOF(TokPos),
+    TokKwd(String, TokPos),
+    TokID(String, TokPos),
 }
 
 impl Tok {
@@ -35,6 +42,12 @@ impl Tok {
             Tok::TokLeftParenthesis(pos) => pos,
             Tok::TokRightParenthesis(pos) => pos,
             Tok::TokFloat(_, pos) => pos,
+            Tok::TokNextLine(pos) => pos,
+
+            Tok::TokKwd(_, pos) => pos,
+            Tok::TokID(_, pos) => pos,
+            Tok::TokLeftBrace(pos) => pos,
+            Tok::TokRightBrace(pos) => pos
         }
     }
 }
@@ -47,7 +60,6 @@ pub struct Lexer {
     line: usize,
     // for meta information, it will be used to create `TokPos`
     line_begin_pos: usize,
-
 }
 
 impl Lexer {
@@ -72,16 +84,34 @@ impl Lexer {
             return;
         }
         let mut ch = self.code[self.pos];
-        while ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
-            if ch == '\n' {
-                self.inc_line();
-            }
+        while ch == ' ' || ch == '\t'  {
             self.pos += 1;
             if self.pos < self.code.len() {
                 ch = self.code[self.pos];
             } else {
                 break;
             }
+        }
+    }
+
+    fn lex_next_line(&mut self) {
+        if self.pos >= self.code.len() {
+            return;
+        }
+        let mut ch = self.code[self.pos];
+        if ch == '\n' || ch == '\r' {
+            while ch == '\n' || ch == '\r' {
+                self.pos += 1;
+                self.inc_line();
+                self.eat_space();
+                if self.pos >= self.code.len() {
+                    break;
+                }
+                ch = self.code[self.pos];
+            }
+            self.tok = Ok(Tok::TokNextLine(TokPos::from(self)))
+        }else{
+            self.tok = Err(self.err_here("Expect a \\n here".to_string()));
         }
     }
 
@@ -112,7 +142,7 @@ impl Lexer {
         }
 
         self.tok = if self.pos < self.code.len() && self.code[self.pos] == '.' {
-            self.pos+=1;
+            self.pos += 1;
             while self.pos < self.code.len() && self.code[self.pos].is_ascii_digit() {
                 self.pos += 1;
             }
@@ -120,13 +150,11 @@ impl Lexer {
             let number: f64 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
 
             Ok(Tok::TokFloat(number, TokPos::from(self)))
-        }else{
+        } else {
             let number: i32 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
 
             Ok(Tok::TokInteger(number, TokPos::from(self)))
         }
-
-
     }
 
     fn err_here(&self, msg: String) -> LexerError {
@@ -142,6 +170,15 @@ impl Lexer {
         } else {
             self.tok = Err(self.err_here("Expect a operator here".to_string()));
         }
+    }
+
+    fn lex_brace(&mut self) {
+        self.tok = match self.code[self.pos] {
+            '{' => Ok(Tok::TokLeftBrace(TokPos::from(self))),
+            '}' => Ok(Tok::TokRightBrace(TokPos::from(self))),
+            _ => Err(self.err_here("Expect a brace here".to_string()))
+        };
+        self.pos += 1;
     }
 
     fn lex_parenthesis(&mut self) {
@@ -221,6 +258,27 @@ impl Lexer {
         }
     }
 
+    fn lex_word(&mut self) {
+        lazy_static! {
+            static ref kwds:HashSet<&'static str> = HashSet::from(["fn", "return", "priv"]);
+        }
+        if !self.code[self.pos].is_numeric() && !(self.code[self.pos].is_ascii_punctuation() && self.code[self.pos] != '_') {
+            let begin = self.pos;
+            while self.pos < self.code.len() && (self.code[self.pos].is_ascii_punctuation() && self.code[self.pos] != '_') {
+                self.pos += 1;
+            }
+            let string = (&self.code[begin..self.pos]).iter().collect::<String>();
+
+            if (kwds.borrow() as &HashSet<&'static str>).contains(&*string) {
+                self.tok = Ok(Tok::TokKwd(string, TokPos::from(self)));
+            } else {
+                self.tok = Ok(Tok::TokID(string, TokPos::from(self)));
+            }
+        } else {
+            self.tok = Err(self.err_here("Unrecognised token here".to_string()))
+        }
+    }
+
 
     pub fn advance(&mut self) {
         self.eat_space();
@@ -229,7 +287,10 @@ impl Lexer {
             return;
         }
         let ch = self.code[self.pos];
-        if ch.is_ascii_digit() {
+        if ch == '\n' || ch == '\r' {
+            self.lex_next_line();
+            return;
+        }else if ch.is_ascii_digit() {
             self.lex_number();
             return;
         } else if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' {
@@ -238,11 +299,16 @@ impl Lexer {
         } else if ch == '(' || ch == ')' {
             self.lex_parenthesis();
             return;
+        } else if ch == '{' || ch == '}' {
+            self.lex_brace();
+            return;
         } else if ch == '=' || ch == '<' || ch == '>' || ch == '!' {
             self.lex_relational();
             return;
         } else {
-            self.tok = Err(self.err_here("Unrecognised token here".to_string()))
+            // self.tok = Err(self.err_here("Unrecognised token here".to_string()))
+            self.lex_word();
+            return;
         }
     }
 }
