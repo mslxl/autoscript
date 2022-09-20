@@ -19,6 +19,7 @@ impl TokPos {
 #[derive(Debug, Clone)]
 pub enum Tok {
     TokInteger(i32, TokPos),
+    TokFloat(f64, TokPos),
     TokOp(String, TokPos),
     TokLeftParenthesis(TokPos),
     TokRightParenthesis(TokPos),
@@ -33,6 +34,7 @@ impl Tok {
             Tok::TokEOF(pos) => pos,
             Tok::TokLeftParenthesis(pos) => pos,
             Tok::TokRightParenthesis(pos) => pos,
+            Tok::TokFloat(_, pos) => pos,
         }
     }
 }
@@ -109,9 +111,22 @@ impl Lexer {
             self.pos += 1;
         }
 
-        let number: i32 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
+        self.tok = if self.pos < self.code.len() && self.code[self.pos] == '.' {
+            self.pos+=1;
+            while self.pos < self.code.len() && self.code[self.pos].is_ascii_digit() {
+                self.pos += 1;
+            }
 
-        self.tok = Ok(Tok::TokInteger(number, TokPos::from(self)));
+            let number: f64 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
+
+            Ok(Tok::TokFloat(number, TokPos::from(self)))
+        }else{
+            let number: i32 = (&self.code[begin..self.pos]).iter().collect::<String>().parse().unwrap();
+
+            Ok(Tok::TokInteger(number, TokPos::from(self)))
+        }
+
+
     }
 
     fn err_here(&self, msg: String) -> LexerError {

@@ -9,4 +9,4 @@ mul    ::= mul '*' unary | mul '/' unary | mul '%' unary | unary
 
 unary  ::= '-' unary | '+' unary | primary
 primary::= (expr) | num
-num    ::= integer
+num    ::= integer | float

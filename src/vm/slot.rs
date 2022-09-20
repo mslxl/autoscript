@@ -21,6 +21,7 @@ pub enum Slot{
 // }
 
 impl Slot{
+    #[inline]
     pub fn set_int(&mut self, val: i64){
         match self{
             Slot::Int(v) => *v = val,
@@ -34,6 +35,26 @@ impl Slot{
     #[inline]
     pub fn get_int(&self) -> i64 {
         if let Slot::Int(value) = self {
+            *value
+        }else{
+            panic!()
+        }
+    }
+
+    #[inline]
+    pub fn set_float(&mut self, val: f64){
+        match self{
+            Slot::Float(v) => *v = val,
+            Slot::Null => {
+                *self = Slot::Float(val)
+            }
+            _ => panic!()
+        }
+    }
+
+    #[inline]
+    pub fn get_float(&self) -> f64 {
+        if let Slot::Float(value) = self {
             *value
         }else{
             panic!()

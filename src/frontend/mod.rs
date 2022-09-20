@@ -41,10 +41,13 @@ pub mod parser;
     test_expr("114 % 3", false);
     test_expr("(114514)", false);
     test_expr("(1145) % 14", false);
+
+    test_expr("3.14159 * 2",false);
+    test_expr("11.1414 % 3 + (39 - 10) * 1.0 / 20", false);
 }
 
 #[test] fn basic_trans(){
-    fn trans(code: &str, is_err:bool){
+    fn trans(code: &str){
         let lexer = Lexer::new(code);
         let mut parser = Parser::new(lexer);
         let mut generator = CodeGen::new();
@@ -55,7 +58,8 @@ pub mod parser;
         print!("{}", instr.instr);
         println!("<<< {} <<<", code)
     }
-    trans("1+5*3", false);
-    trans("1+ -5", false);
-    trans("114514 * (1919 + 810) % 400 - 10000", false)
+    trans("1+5*3");
+    trans("1+ -5");
+    trans("114514 * (1919 + 810) % 400 - 10000");
+    trans("11.1414 % 3 + (39 - 10) * 1.0 / 20");
 }

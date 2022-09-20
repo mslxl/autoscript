@@ -180,7 +180,16 @@ impl Parser {
     }
 
     fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        self.integer()
+        if let Ok(tok) = self.lexer.tok.as_ref() {
+            match tok {
+                Tok::TokInteger(_, _) => self.integer(),
+                Tok::TokFloat(_, _) => self.float(),
+                _ =>  Err(self.error_unexpect())
+            }
+        }else{
+            Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
+        }
+
     }
 
 
@@ -191,6 +200,20 @@ impl Parser {
                 self.lexer.advance();
                 Ok(ExprNode::Integer(integer))
             } else {
+                Err(self.error_unexpect())
+            }
+        } else {
+            Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
+        }
+    }
+
+    fn float(&mut self) -> Result<ExprNode, Box<dyn Error>>{
+        if let Ok(tok) = self.lexer.tok.as_ref() {
+            if let Tok::TokFloat(value,_) = tok {
+                let float = *value;
+                self.lexer.advance();
+                Ok(ExprNode::Float(float))
+            }else{
                 Err(self.error_unexpect())
             }
         } else {

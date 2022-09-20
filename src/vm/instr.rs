@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, write};
 use std::ops;
 use crate::vm::obj::Obj;
 use crate::vm::slot::Slot;
@@ -13,6 +13,18 @@ pub enum Instr {
     IDiv,
     INeg,
     IRem,
+
+    I2F,
+    F2I,
+
+    FPush(f64),
+    FAdd,
+    FSub,
+    FMul,
+    FDiv,
+    FNeg,
+    FRem,
+
 
     Call(String),
     Goto(i32),
@@ -53,6 +65,47 @@ impl Instr{
                 let v2 = frame.operand_stack.pop().unwrap().get_int();
                 let v1 = frame.operand_stack.pop().unwrap().get_int();
                 frame.operand_stack.push(Slot::Int(v1 % v2));
+            }
+
+            Instr::I2F => {
+                let v = frame.operand_stack.pop().unwrap().get_int();
+                frame.operand_stack.push(Slot::Float(v as f64));
+            }
+            Instr::F2I => {
+                let v = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Int(v as i64));
+            }
+            Instr::FPush(value) => {
+                frame.operand_stack.push(Slot::Float(*value));
+            }
+            Instr::FAdd => {
+                let v2 = frame.operand_stack.pop().unwrap().get_float();
+                let v1 = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(v1 % v2));
+            }
+            Instr::FSub => {
+                let v2 = frame.operand_stack.pop().unwrap().get_float();
+                let v1 = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(v1 - v2));
+            }
+            Instr::FMul => {
+                let v2 = frame.operand_stack.pop().unwrap().get_float();
+                let v1 = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(v1 * v2));
+            }
+            Instr::FDiv => {
+                let v2 = frame.operand_stack.pop().unwrap().get_float();
+                let v1 = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(v1 / v2));
+            }
+            Instr::FNeg => {
+                let v = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(-v));
+            }
+            Instr::FRem => {
+                let v2 = frame.operand_stack.pop().unwrap().get_float();
+                let v1 = frame.operand_stack.pop().unwrap().get_float();
+                frame.operand_stack.push(Slot::Float(v1 % v2));
             }
             _ => todo!()
         }
@@ -109,7 +162,17 @@ impl Display for Instr{
             Instr::INeg => write!(f, "ineg"),
             Instr::IRem => write!(f, "irem"),
             Instr::Call(refer) => write!(f, "call {}", refer),
-            Instr::Goto(offset) => {write!(f, "goto {}", offset)}
+            Instr::Goto(offset) => write!(f, "goto {}", offset),
+
+            Instr::I2F => write!(f, "i2f"),
+            Instr::F2I => write!(f, "f2i"),
+            Instr::FPush(value) => write!(f, "fpush {}", value),
+            Instr::FAdd => write!(f, "fadd"),
+            Instr::FSub => write!(f, "fsub"),
+            Instr::FMul => write!(f, "fmul"),
+            Instr::FDiv => write!(f, "fdiv"),
+            Instr::FNeg => write!(f, "fneg"),
+            Instr::FRem => write!(f, "frem"),
         }
     }
 }
