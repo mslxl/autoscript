@@ -1,12 +1,11 @@
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{Display, Formatter};
 use std::ops;
-use crate::vm::obj::Obj;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
 
 #[derive(Clone, Debug)]
 pub enum Instr {
-    IPush(i32),
+    IPush(i64),
     IAdd,
     ISub,
     IMul,

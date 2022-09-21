@@ -1,12 +1,36 @@
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ExprNode{
-    Integer(i32),
+    Integer(i64),
     Float(f64),
-    Op(Box<ExprNode>, String, Box<ExprNode>),
-    UnaryOp(String, Box<ExprNode>)
+    Op(Box<ExprNode>, Op, Box<ExprNode>),
+    UnaryOp(UnaryOp, Box<ExprNode>)
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Op{
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Rem,
+    Lt,
+    Le,
+    Eq,
+    Ne,
+    Gt,
+    Ge,
+    InfixFn(String)
+}
+
+#[derive(Debug, PartialEq)]
+pub enum UnaryOp{
+    Plus,
+    Minus,
+    Not
+}
+
+#[derive(Debug)]
 pub enum StmtNode{
     ExprStmt(Box<ExprNode>),
     ReturnStmt

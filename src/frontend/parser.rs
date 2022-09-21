@@ -1,249 +1,174 @@
-use std::error::Error;
-use crate::error::ParseError;
+use nom::branch::alt;
+use nom::bytes::complete::take;
+use nom::combinator::{map, opt, verify};
+use nom::Err;
+use nom::error::{Error, ErrorKind};
+use nom::IResult;
+use nom::multi::many0;
+use nom::sequence::{pair, tuple};
+use crate::frontend::ast::{ExprNode, Op, UnaryOp};
+use crate::frontend::tok::{Tok, Tokens};
+macro_rules! tag_token (
+  ($func_name:ident, $tag:expr) => (
+      fn $func_name (tokens: Tokens) -> IResult<Tokens, Tokens> {
+          verify(take(1usize), |t:&Tokens| t.tok[0] == $tag)(tokens)
+      }
+  )
+);
 
+tag_token!(plus_tag, Tok::Plus);
+tag_token!(minus_tag, Tok::Minus);
+tag_token!(mul_tag, Tok::Multiply);
+tag_token!(div_tag, Tok::Divide);
+tag_token!(rem_tag, Tok::Rem);
+tag_token!(le_tag, Tok::Le);
+tag_token!(lt_tag, Tok::Lt);
+tag_token!(ge_tag, Tok::Ge);
+tag_token!(gt_tag, Tok::Gt);
+tag_token!(eq_tag, Tok::Eq);
+tag_token!(ne_tag, Tok::Ne);
 
-use crate::{Lexer};
-use crate::frontend::ast::ExprNode;
-use crate::frontend::lexer::Tok;
+tag_token!(lparen_tag, Tok::LParen);
+tag_token!(rparen_tag, Tok::RParen);
 
-pub struct Parser {
-    lexer: Lexer,
+fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, t1) = take(1usize)(input)?;
+    if t1.tok.is_empty() {
+        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+    } else {
+        match t1.tok.first().unwrap() {
+            Tok::Int(num) => Ok((i1, Box::new(ExprNode::Integer(*num)))),
+            Tok::Float(num) => Ok((i1, Box::new(ExprNode::Float(*num)))),
+            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+        }
+    }
 }
+
+fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let fst_match = tuple((lparen_tag, parse_expr, rparen_tag))(input);
+    if fst_match.is_ok() {
+        let (i1, (_, expr, _)) = fst_match.unwrap();
+        Ok((i1, expr))
+    } else {
+        parse_num(input)
+    }
+}
+
+
+fn parse_unary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let fst_match = pair((alt((plus_tag, minus_tag))), parse_unary)(input);
+    if fst_match.is_ok() {
+        let (i1, (tokens, expr)) = fst_match.unwrap();
+        let op = match tokens.tok.first().unwrap() {
+            Tok::Plus => UnaryOp::Plus,
+            Tok::Minus => UnaryOp::Minus,
+            _ => unreachable!()
+        };
+        Ok((i1, Box::new(ExprNode::UnaryOp(op, expr))))
+    } else {
+        parse_primary(input)
+    }
+}
+
+fn parse_mul(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, (mut lhs, seq)) = pair(parse_unary, many0(pair(alt((mul_tag, div_tag, rem_tag)), parse_unary)))(input)?;
+    for (tokens, rhs) in seq {
+        let op = match tokens.tok.first().unwrap() {
+            Tok::Multiply => Op::Mul,
+            Tok::Divide => Op::Div,
+            Tok::Rem => Op::Rem,
+            _ => unreachable!()
+        };
+        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+    }
+    Ok((i1, lhs))
+}
+
+fn parse_add(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, (mut lhs, seq)) = pair(parse_mul, many0(pair(alt((plus_tag, minus_tag)), parse_mul)))(input)?;
+    for (tokens, rhs) in seq {
+        let op = match tokens.tok.first().unwrap() {
+            Tok::Plus => Op::Add,
+            Tok::Minus => Op::Sub,
+            _ => unreachable!()
+        };
+        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+    }
+    Ok((i1, lhs))
+}
+
+fn parse_relational(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let fst_match = tuple((parse_add, alt((le_tag, ge_tag, lt_tag, gt_tag)), parse_add))(input);
+    if fst_match.is_ok() {
+        let (i1, (lhs, tokens, rhs)) = fst_match.unwrap();
+        let op = match tokens.tok.first().unwrap() {
+            Tok::Lt => Op::Lt,
+            Tok::Le => Op::Le,
+            Tok::Gt => Op::Gt,
+            Tok::Ge => Op::Ge,
+            _ => unreachable!()
+        };
+        Ok((i1, Box::new(ExprNode::Op(lhs, op, rhs))))
+    } else {
+        parse_add(input)
+    }
+}
+
+fn parse_equality(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let fst_match = tuple((parse_relational, alt((eq_tag, ne_tag)), parse_relational))(input);
+    if fst_match.is_ok() {
+        let (i1, (lhs, tokens, rhs)) = fst_match.unwrap();
+        let op = match tokens.tok.first().unwrap() {
+            Tok::Ne => Op::Ne,
+            Tok::Eq => Op::Eq,
+            _ => unreachable!()
+        };
+        Ok((i1, Box::new(ExprNode::Op(lhs, op, rhs))))
+    } else {
+        parse_relational(input)
+    }
+}
+
+fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    parse_equality(input)
+}
+
+pub struct Parser;
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Self {
-        Parser {
-            lexer
-        }
-    }
-
-    fn get_current_line(&self) -> String {
-        self.lexer.get_current_line()
-    }
-
-    fn error_unexpect(&self) -> Box<dyn Error> {
-        match &self.lexer.tok {
-            Err(e) => Box::new((*e).clone()),
-            Ok(tok) => {
-                let pos = tok.pos();
-                let tok = (*tok).clone();
-                let err = ParseError::new(None,
-                                          pos.line,
-                                          pos.pos,
-                                          self.get_current_line(),
-                                          None, tok);
-                Box::new(err)
-            }
-        }
-    }
-
-    fn error_expect_unsatisfying(&self, expect: String) -> Box<dyn Error> {
-        match &self.lexer.tok {
-            Err(e) => Box::new((*e).clone()),
-            Ok(tok) => {
-                let pos = tok.pos();
-                let tok = (*tok).clone();
-                let err = ParseError::new(Some(expect),
-                                          pos.line,
-                                          pos.pos,
-                                          self.get_current_line(),
-                                          None, tok);
-                Box::new(err)
-            }
-        }
-    }
-
-
-    pub fn parse(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        match self.lexer.tok.as_ref().unwrap() {
-            Tok::TokEOF(_) => Err(self.error_unexpect()),
-            _ => Ok(self.expr()?)
-        }
-    }
-
-    fn function_def(&mut self) -> Result<(),Box<dyn Error>> {
-        let mut private_flag = false;
-        if let Ok(Tok::TokKwd(kwd, _)) = self.lexer.tok.as_ref() {
-            private_flag = kwd == "priv";
-            if private_flag {
-                self.lexer.advance()
-            }
-        }else{
-            return Err(self.error_unexpect())
-        }
-        if let Ok(Tok::TokKwd(String::from("fn"), _)) = self.lexer.tok.as_ref() {
-           self.lexer.advance();
-        }else{
-            return Err(self.error_unexpect())
-        }
-
-        let function_name = if let Ok(Tok::TokID(id, _)) = self.lexer.tok.as_ref() {
-            id.to_string()
-        }else{
-            return Err(self.error_unexpect())
-        }
-
-        self.lexer.advance(); //todo skip ()
-        self.lexer.advance();
-    }
-
-    fn expr(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        self.equality()
-    }
-    fn equality(&mut self) -> Result<ExprNode, Box<dyn Error>>{
-        let left = self.relational()?;
-        let op = match self.lexer.tok.as_ref() {
-            Err(e) => {
-                let err:Box<dyn Error> = Box::new((*e).clone());
-                Err(err)
-            },
-            Ok(op) => if let Tok::TokOp(op, _) = op {
-                let op: &str = op;
-                match op {
-                    "==" => Ok("=="),
-                    "!=" => Ok("!="),
-                    _ => return Ok(left)
-                }
-            }else {
-                return Ok(left);
-            }
-        }?;
-        self.lexer.advance();
-        let right = self.relational()?;
-        Ok(ExprNode::Op(Box::new(left), String::from(op), Box::new(right)))
-    }
-
-    fn relational(&mut self) -> Result<ExprNode, Box<dyn Error>>{
-        let left = self.add()?;
-        let op = match self.lexer.tok.as_ref() {
-            Err(e) => {
-                let err:Box<dyn Error> = Box::new((*e).clone());
-                Err(err)
-            },
-            Ok(op) => if let Tok::TokOp(op, _) = op {
-                let op: &str = op;
-                match op {
-                    "<" => Ok("<"),
-                    ">" => Ok(">"),
-                    ">=" => Ok(">="),
-                    "<=" => Ok("<="),
-                    _ => return Ok(left)
-                }
-            }else {
-                return Ok(left)
-            }
-        }?;
-        self.lexer.advance();
-        let right = self.add()?;
-        Ok(ExprNode::Op(Box::new(left),String::from(op), Box::new(right)))
-    }
-
-    fn add(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        let mut left = self.mul()?;
-
-        while let Tok::TokOp(ref op, _) = self.lexer.tok.as_ref().unwrap() {
-            if op == "+" || op == "-" {
-                let op = op.clone();
-                self.lexer.advance();
-                let right = self.mul()?;
-                left = ExprNode::Op(Box::new(left), op, Box::new(right));
-            } else {
-                break;
-            }
-        }
-        Ok(left)
-    }
-
-    fn mul(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        let mut left = self.unary()?;
-
-        while let Tok::TokOp(ref op, _) = self.lexer.tok.as_ref().unwrap() {
-            if op == "*" || op == "/" || op == "%" {
-                let op = op.clone();
-                self.lexer.advance();
-                let right = self.unary()?;
-                left = ExprNode::Op(Box::new(left), op, Box::new(right));
-            } else {
-                break;
-            }
-        }
-        Ok(left)
-    }
-
-    fn unary(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        match self.lexer.tok.as_ref() {
-            Err(e) => Err(Box::new((*e).clone())),
-            Ok(tok) => {
-                if let Tok::TokOp(op, _) = tok {
-                    if op == "+" || op == "-" {
-                        let op = op.clone();
-                        self.lexer.advance();
-                        let expr = self.unary()?;
-                        Ok(ExprNode::UnaryOp(op, Box::new(expr)))
-                    }else{
-                        self.primary()
-                    }
-                }else{
-                    self.primary()
-                }
-            }
-        }
-    }
-
-    fn primary(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        if let Ok(Tok::TokLeftParenthesis(_)) = self.lexer.tok.as_ref() {
-            self.lexer.advance();
-            let expr = self.expr()?;
-            if let Ok(Tok::TokRightParenthesis(_)) = self.lexer.tok {
-                self.lexer.advance();
-            } else {
-                self.error_expect_unsatisfying(")".to_string());
-            }
-            Ok(expr)
-        } else {
-            self.num()
-        }
-    }
-
-    fn num(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        if let Ok(tok) = self.lexer.tok.as_ref() {
-            match tok {
-                Tok::TokInteger(_, _) => self.integer(),
-                Tok::TokFloat(_, _) => self.float(),
-                _ =>  Err(self.error_unexpect())
-            }
-        }else{
-            Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
-        }
-
-    }
-
-
-    fn integer(&mut self) -> Result<ExprNode, Box<dyn Error>> {
-        if let Ok(tok) = self.lexer.tok.as_ref() {
-            if let Tok::TokInteger(integer, _) = tok {
-                let integer = *integer;
-                self.lexer.advance();
-                Ok(ExprNode::Integer(integer))
-            } else {
-                Err(self.error_unexpect())
-            }
-        } else {
-            Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
-        }
-    }
-
-    fn float(&mut self) -> Result<ExprNode, Box<dyn Error>>{
-        if let Ok(tok) = self.lexer.tok.as_ref() {
-            if let Tok::TokFloat(value,_) = tok {
-                let float = *value;
-                self.lexer.advance();
-                Ok(ExprNode::Float(float))
-            }else{
-                Err(self.error_unexpect())
-            }
-        } else {
-            Err(Box::new(self.lexer.tok.as_ref().unwrap_err().clone()))
-        }
+    pub fn parse(tokens: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+        parse_expr(tokens)
     }
 }
+
+mod tests {
+    use std::ops::Not;
+    use super::*;
+    use crate::frontend::lexer::Lexer;
+
+    fn assert_expr(input: &str, expr_expect: ExprNode) {
+        let input = input.as_bytes();
+        let (remain, tok) = Lexer::lex_tokens(input).unwrap();
+        assert_eq!(remain.len(), 0);
+        let tokens = Tokens::new(&tok);
+        let (remain, expr) = Parser::parse(tokens).unwrap();
+
+        if remain.tok.is_empty().not() {
+            println!("{:?}", remain);
+            assert_eq!(remain.tok.len(), 0);
+        }
+        assert_eq!(expr, Box::new(expr_expect))
+    }
+
+    #[test]
+    fn test_basic_add() {
+        assert_expr("1+1",
+                    ExprNode::Op(
+                        Box::new(ExprNode::Integer(1)),
+                        Op::Add,
+                        Box::new(ExprNode::Integer(1))
+                    ));
+    }
+}
+
+
