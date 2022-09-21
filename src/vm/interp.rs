@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::vm::instr::{Instr, Instructions};
+use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
 

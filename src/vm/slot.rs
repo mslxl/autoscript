@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter, write};
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub enum Slot{

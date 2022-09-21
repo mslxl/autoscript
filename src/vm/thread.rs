@@ -1,14 +1,7 @@
-use std::cell::RefCell;
-use std::fs::read;
-use std::io::Write;
-use std::ptr::{null, null_mut};
+use std::ptr::null_mut;
 use std::rc::Rc;
-use std::sync::Mutex;
-use std::thread;
-use crate::AutoScriptLoader;
 use crate::vm::bytecode_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::interp::AutoScriptVM;
-use crate::vm::obj::{Obj, ObjInner};
 use crate::vm::slot::Slot;
 
 
