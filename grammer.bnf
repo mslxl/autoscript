@@ -21,4 +21,4 @@ primary::= (expr) | num
 num    ::= integer | float
 
 
-function_def ::= "fn" identifity "(" ")" "{" expr "\n" "}"
+function_def ::= "fn" identifity "(" ")" ("->" identifity)? "{" (expr ';'?)* "\n" "}"

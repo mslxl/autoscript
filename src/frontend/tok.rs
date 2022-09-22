@@ -7,9 +7,19 @@ pub enum Tok {
     EOF,
     Int(i64),
     Float(f64),
+    Bool(bool),
+    Ident(String),
     // punctuations
     LParen,
     RParen,
+    LBrace,
+    RBrace,
+    Semicolon,
+    RightArrow,
+    // keyword
+    KwdFn,
+    KwdRet,
+
 
     // operator
     Plus,

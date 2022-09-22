@@ -1,3 +1,4 @@
+
 use nom::branch::alt;
 use nom::bytes::complete::take;
 use nom::combinator::{map, opt, verify};
@@ -5,8 +6,8 @@ use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
-use nom::sequence::{pair, tuple};
-use crate::frontend::ast::{ExprNode, Op, UnaryOp};
+use nom::sequence::{delimited, pair, terminated, tuple};
+use crate::frontend::ast::{Block, ExprNode, Op, Program, StmtNode, TypeRef, UnaryOp};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
@@ -30,6 +31,24 @@ tag_token!(ne_tag, Tok::Ne);
 
 tag_token!(lparen_tag, Tok::LParen);
 tag_token!(rparen_tag, Tok::RParen);
+tag_token!(lbrace_tag, Tok::LBrace);
+tag_token!(rbrace_tag, Tok::RBrace);
+tag_token!(semicolon_tag, Tok::Semicolon);
+tag_token!(rarrow_tag, Tok::RightArrow);
+
+tag_token!(fn_kwd_tag, Tok::KwdFn);
+tag_token!(ret_kwd_tag, Tok::KwdRet);
+fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
+    let (i1, t1) = take(1usize)(input)?;
+    if t1.tok.is_empty() {
+        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+    } else {
+        match t1.tok[0].clone() {
+            Tok::Ident(name) => Ok((i1, name)),
+            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag))),
+        }
+    }
+}
 
 fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     let (i1, t1) = take(1usize)(input)?;
@@ -133,11 +152,48 @@ fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     parse_equality(input)
 }
 
+fn parse_expr_stmt(input:Tokens) -> IResult<Tokens, StmtNode>{
+    map(terminated(parse_expr, opt(semicolon_tag)), |expr| {
+        StmtNode::ExprStmt(expr)
+    })(input)
+}
+
+fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+    map(delimited(ret_kwd_tag, parse_expr, opt(semicolon_tag)), |expr| {
+        StmtNode::RetStmt(expr)
+    })(input)
+}
+
+fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+    alt((parse_ret_stmt, parse_expr_stmt))(input)
+}
+
+fn parse_block_stmt(input:Tokens) -> IResult<Tokens, Block> {
+    delimited(lbrace_tag, many0(parse_stmt), rbrace_tag)(input)
+}
+
+fn parse_func(input: Tokens) -> IResult<Tokens, Program> {
+    let (i1, (_, id, _, _, ret_value,block)) = tuple((fn_kwd_tag,parse_ident , lparen_tag, rparen_tag, opt(pair(rarrow_tag, parse_ident)), parse_block_stmt))(input).unwrap();
+    let func = Program::Function {
+        name: id,
+        param: None,
+        ret: match ret_value {
+            None => None,
+            Some((_, id)) => Some(TypeRef(id)),
+        },
+        block
+    };
+    Ok((i1, func))
+}
+
+
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-        parse_expr(tokens)
+    pub fn parse(tokens: Tokens) -> Program {
+        let (i1, program) = parse_func(tokens).unwrap();
+        assert!(i1.tok.is_empty());
+        program
     }
 }
 
@@ -148,10 +204,9 @@ mod tests {
 
     fn assert_expr(input: &str, expr_expect: ExprNode) {
         let input = input.as_bytes();
-        let (remain, tok) = Lexer::lex_tokens(input).unwrap();
-        assert_eq!(remain.len(), 0);
+        let tok = Lexer::lex_tokens(input);
         let tokens = Tokens::new(&tok);
-        let (remain, expr) = Parser::parse(tokens).unwrap();
+        let (remain, expr) = parse_expr(tokens).unwrap();
 
         if remain.tok.is_empty().not() {
             println!("{:?}", remain);
@@ -169,6 +224,21 @@ mod tests {
                         Box::new(ExprNode::Integer(1))
                     ));
     }
+
+    #[test]
+    fn test_function(){
+        let input =
+            "fn test() -> i32{\
+                 3*4+7.0/2;\
+                 114514 * 3/14;\
+                 return 11 - 4.5;\
+             }";
+        let token = Lexer::lex_tokens(input.as_bytes());
+        let token = Tokens::new(&token);
+        let program = Parser::parse(token);
+        println!("{:#?}", program);
+    }
+
 }
 
 

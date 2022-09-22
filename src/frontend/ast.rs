@@ -1,10 +1,31 @@
 
+pub type Block = Vec<StmtNode>;
+
+#[derive(Debug, PartialEq)]
+pub enum StmtNode{
+    ExprStmt(Box<ExprNode>),
+    RetStmt(Box<ExprNode>),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Program{
+    Function{
+        name: String,
+        param: Option<Vec<(String, TypeRef)>>,
+        ret: Option<TypeRef>,
+        block: Block
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TypeRef(pub String);
+
 #[derive(Debug, PartialEq)]
 pub enum ExprNode{
     Integer(i64),
     Float(f64),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
-    UnaryOp(UnaryOp, Box<ExprNode>)
+    UnaryOp(UnaryOp, Box<ExprNode>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -30,11 +51,6 @@ pub enum UnaryOp{
     Not
 }
 
-#[derive(Debug)]
-pub enum StmtNode{
-    ExprStmt(Box<ExprNode>),
-    ReturnStmt
-}
 
 #[derive(Debug)]
 pub struct FunctionDefinition {

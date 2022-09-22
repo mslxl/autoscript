@@ -5,7 +5,7 @@ use nom::IResult;
 use nom::combinator::{map, map_res, opt, recognize};
 use nom::bytes::complete::tag;
 use nom::bytes::streaming::take_while_m_n;
-use nom::character::complete::{char, digit0, digit1, multispace0};
+use nom::character::complete::{alpha1, alphanumeric1, char, digit0, digit1, multispace0};
 use nom::multi::{many0, many_m_n};
 use nom::sequence::{delimited, pair, tuple};
 
@@ -52,10 +52,18 @@ fn lex_operator(input: &[u8]) -> IResult<&[u8], Tok> {
 
 literal_lex!(lparen_punctuation, "(", Tok::LParen);
 literal_lex!(rparen_punctuation, ")", Tok::RParen);
+literal_lex!(lbrace_punctuation, "{", Tok::LBrace);
+literal_lex!(rbrace_punctuation, "}", Tok::RBrace);
+literal_lex!(semicolon_punctuation, ";", Tok::Semicolon);
+literal_lex!(rarrow_punctuation, "->", Tok::RightArrow);
 fn lex_punctuations(input: &[u8]) -> IResult<&[u8], Tok> {
     alt((
         lparen_punctuation,
-        rparen_punctuation
+        rparen_punctuation,
+        lbrace_punctuation,
+        rbrace_punctuation,
+        semicolon_punctuation,
+        rarrow_punctuation,
     ))(input)
 }
 
@@ -84,10 +92,30 @@ fn lex_float(input: &[u8]) -> IResult<&[u8], Tok> {
     )(input)
 }
 
+fn lex_ident_and_keyword(input: &[u8]) -> IResult<&[u8], Tok> {
+    map_res(
+        recognize(pair(
+            alt((alpha1, tag("_"))),
+            many0(alt((alphanumeric1, tag("_"))))
+        )),
+        |word| {
+            let word = std::str::from_utf8(word);
+            word.map(|syntax| match syntax {
+                "fn" => Tok::KwdFn,
+                "true" => Tok::Bool(true),
+                "false" => Tok::Bool(false),
+                "return" => Tok::KwdRet,
+                _ => Tok::Ident(syntax.to_string())
+            })
+        }
+    )(input)
+}
+
 fn lex_token(input: &[u8]) -> IResult<&[u8], Tok> {
     alt((
-        lex_operator,
         lex_punctuations,
+        lex_operator,
+        lex_ident_and_keyword,
         lex_float,
         lex_integer,
     ))(input)
@@ -99,8 +127,10 @@ fn lex_tokens(input: &[u8]) -> IResult<&[u8], Vec<Tok>> {
 
 pub struct Lexer;
 impl Lexer{
-    pub fn lex_tokens(input: &[u8]) -> IResult<&[u8], Vec<Tok>> {
-        lex_tokens(input)
+    pub fn lex_tokens(input: &[u8]) -> Vec<Tok> {
+        let (i1, tok) = lex_tokens(input).unwrap();
+        assert_eq!(i1.len(), 0);
+        tok
     }
 }
 
@@ -109,7 +139,12 @@ mod tests{
 
     #[test]
     fn test_lexer() {
-        println!("{:?}", Lexer::lex_tokens("1 + 3.14 * 4132 ".as_bytes()).unwrap())
+        println!("{:?}", Lexer::lex_tokens("1 + 3.14 * 4132 ".as_bytes()))
+    }
+    #[test]
+    fn test_function() {
+        let input = "fn plus(){1+1}".as_bytes();
+        println!("{:?}", Lexer::lex_tokens(input))
     }
 }
 
