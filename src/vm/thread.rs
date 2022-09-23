@@ -62,13 +62,10 @@ impl Thread{
 
         let mut frame = self.frame_stack.pop().unwrap();
 
-        println!(">>>");
         while reader.is_unfinished() {
             let instr = reader.read_instr();
             instr.execute(&mut frame);
-            println!("{:?}", frame.operand_stack);
         }
-        println!("<<<");
 
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::frontend::ast::TypeInfo;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
@@ -69,7 +70,8 @@ impl Default for AutoScriptModule{
 pub struct FunctionPrototype{
     pub name: String,
     pub local_var_size: usize,
-    pub code: Rc<Instructions>
+    pub code: Rc<Instructions>,
+    pub ret: TypeInfo
 }
 #[derive(Debug)]
 pub struct AutoScriptVM {

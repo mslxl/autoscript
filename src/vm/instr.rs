@@ -27,6 +27,9 @@ pub enum Instr {
 
     Call(String),
     Goto(i32),
+    ReturnValue,
+    Return,
+    Nop,
 }
 
 impl Instr{
@@ -106,6 +109,15 @@ impl Instr{
                 let v1 = frame.operand_stack.pop().unwrap().get_float();
                 frame.operand_stack.push(Slot::Float(v1 % v2));
             }
+            Instr::ReturnValue => {
+                println!("Top: {:?}", frame.operand_stack.first());
+                todo!()
+            }
+            Instr::Return => {
+                println!("Top: {:?}", frame.operand_stack.first());
+                todo!()
+            }
+            Instr::Nop => {}
             _ => todo!()
         }
     }
@@ -162,7 +174,6 @@ impl Display for Instr{
             Instr::IRem => write!(f, "irem"),
             Instr::Call(refer) => write!(f, "call {}", refer),
             Instr::Goto(offset) => write!(f, "goto {}", offset),
-
             Instr::I2F => write!(f, "i2f"),
             Instr::F2I => write!(f, "f2i"),
             Instr::FPush(value) => write!(f, "fpush {}", value),
@@ -172,6 +183,9 @@ impl Display for Instr{
             Instr::FDiv => write!(f, "fdiv"),
             Instr::FNeg => write!(f, "fneg"),
             Instr::FRem => write!(f, "frem"),
+            Instr::ReturnValue => write!(f, "retv"),
+            Instr::Return => write!(f, "ret"),
+            Instr::Nop => write!(f, "nop"),
         }
     }
 }

@@ -1,10 +1,11 @@
+use crate::frontend::ast::TypeInfo::TypeSym;
 
 pub type Block = Vec<StmtNode>;
 
 #[derive(Debug, PartialEq)]
 pub enum StmtNode{
     ExprStmt(Box<ExprNode>),
-    RetStmt(Box<ExprNode>),
+    RetStmt(Option<Box<ExprNode>>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -51,6 +52,25 @@ pub enum UnaryOp{
     Not
 }
 
+#[derive(Eq, PartialEq,Debug)]
+pub enum TypeInfo {
+    Int,
+    Float,
+    Bool,
+    Unit,
+    TypeSym(String)
+}
+impl From<&str> for TypeInfo{
+    fn from(tok: &str) -> Self{
+        match tok{
+            "int" => TypeInfo::Int,
+            "float" => TypeInfo::Float,
+            "bool" => TypeInfo::Bool,
+            "unit" => TypeInfo::Unit,
+            oth => TypeSym(String::from(oth))
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct FunctionDefinition {
@@ -59,3 +79,4 @@ pub struct FunctionDefinition {
     pub args: Vec<(String, String)>,
     pub stmts: Vec<StmtNode>,
 }
+

@@ -1,12 +1,10 @@
-use std::error::Error;
 use std::str::FromStr;
 use nom::branch::alt;
 use nom::IResult;
 use nom::combinator::{map, map_res, opt, recognize};
 use nom::bytes::complete::tag;
-use nom::bytes::streaming::take_while_m_n;
-use nom::character::complete::{alpha1, alphanumeric1, char, digit0, digit1, multispace0};
-use nom::multi::{many0, many_m_n};
+use nom::character::complete::{alpha1, alphanumeric1, char, digit1, multispace0};
+use nom::multi::many0;
 use nom::sequence::{delimited, pair, tuple};
 
 use crate::frontend::tok::*;

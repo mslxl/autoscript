@@ -75,7 +75,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
 
 
 fn parse_unary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    let fst_match = pair((alt((plus_tag, minus_tag))), parse_unary)(input);
+    let fst_match = pair(alt((plus_tag, minus_tag)), parse_unary)(input);
     if fst_match.is_ok() {
         let (i1, (tokens, expr)) = fst_match.unwrap();
         let op = match tokens.tok.first().unwrap() {
@@ -159,7 +159,7 @@ fn parse_expr_stmt(input:Tokens) -> IResult<Tokens, StmtNode>{
 }
 
 fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
-    map(delimited(ret_kwd_tag, parse_expr, opt(semicolon_tag)), |expr| {
+    map(delimited(ret_kwd_tag, opt(parse_expr), opt(semicolon_tag)), |expr| {
         StmtNode::RetStmt(expr)
     })(input)
 }
@@ -229,8 +229,6 @@ mod tests {
     fn test_function(){
         let input =
             "fn test() -> i32{\
-                 3*4+7.0/2;\
-                 114514 * 3/14;\
                  return 11 - 4.5;\
              }";
         let token = Lexer::lex_tokens(input.as_bytes());

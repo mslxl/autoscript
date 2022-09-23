@@ -1,6 +1,10 @@
+extern crate core;
+
 mod vm;
 mod frontend;
-use std::io;
+
+use std::{env, fs, io};
+use std::ffi::OsString;
 use std::rc::Rc;
 use crate::frontend::codegen::CodeGen;
 use crate::frontend::lexer::Lexer;
@@ -9,21 +13,18 @@ use crate::frontend::tok::Tokens;
 use crate::vm::interp::{AutoScriptLoader, AutoScriptModule, AutoScriptVM, FunctionPrototype};
 
 fn main() {
-    let mut buff = String::new();
-    io::stdin().read_line(&mut buff).expect("Read content failed!");
+    let args:Vec<OsString> = env::args_os().collect();
+    assert_ne!(args.len(), 1);
+    let buff = fs::read_to_string(args.get(1).unwrap()).unwrap();
 
-    let (_, tokens) = Lexer::lex_tokens(buff.as_bytes()).unwrap();
+    let tokens = Lexer::lex_tokens(buff.as_bytes());
     let tokens = Tokens::new(&tokens);
-    let (_, expr) = Parser::parse(tokens).unwrap();
-    let instr = Rc::new(CodeGen::new().translate_expr(*expr).instr);
-    print!("{}", instr);
+    let expr = Parser::parse(tokens);
+    let func =CodeGen::new().translate_program(expr);
     let mut module = AutoScriptModule::default();
-
-    module.insert_function_prototype("main", FunctionPrototype{
-        name: String::from("main"),
-        local_var_size: 0,
-        code: instr
-    });
+    println!("{:?}", func);
+    print!("{}", func.code);
+    module.insert_function_prototype(&func.name.clone(), func);
 
     let mut loader = AutoScriptLoader::new();
     loader.put_module("internal", module);
