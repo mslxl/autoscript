@@ -93,4 +93,13 @@ impl LocalVars{
             Self(vec![Slot::Null; size])
         }
     }
+
+    pub fn set(&mut self, index:usize, slot:Slot){
+        self.0[index] =slot;
+    }
+    pub fn get(&mut self, index:usize) -> &Slot {
+        unsafe{
+            self.0.get_unchecked(index)
+        }
+    }
 }

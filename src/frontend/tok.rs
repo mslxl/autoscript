@@ -15,10 +15,13 @@ pub enum Tok {
     LBrace,
     RBrace,
     Semicolon,
+    Colon,
     RightArrow,
     // keyword
     KwdFn,
     KwdRet,
+    KwdVar,
+    KwdVal,
 
 
     // operator

@@ -24,7 +24,9 @@ pub enum Instr {
     FNeg,
     FRem,
 
-
+    Store(usize),
+    Load(usize),
+    Pop,
     Call(String),
     Goto(i32),
     ReturnValue,
@@ -117,8 +119,12 @@ impl Instr{
                 println!("Top: {:?}", frame.operand_stack.first());
                 todo!()
             }
+            Instr::Store(idx) => {
+                let slot = frame.operand_stack.pop().unwrap();
+                frame.local_vars.set(idx-1, slot)
+            }
             Instr::Nop => {}
-            _ => todo!()
+            _ => todo!("{}",self)
         }
     }
 }
@@ -186,6 +192,9 @@ impl Display for Instr{
             Instr::ReturnValue => write!(f, "retv"),
             Instr::Return => write!(f, "ret"),
             Instr::Nop => write!(f, "nop"),
+            Instr::Store(idx) => write!(f, "store {}", idx),
+            Instr::Load(idx) => write!(f, "load {}", idx),
+            Instr::Pop => write!(f, "pop"),
         }
     }
 }

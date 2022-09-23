@@ -53,6 +53,7 @@ literal_lex!(rparen_punctuation, ")", Tok::RParen);
 literal_lex!(lbrace_punctuation, "{", Tok::LBrace);
 literal_lex!(rbrace_punctuation, "}", Tok::RBrace);
 literal_lex!(semicolon_punctuation, ";", Tok::Semicolon);
+literal_lex!(colon_punctuation, ":",Tok::Colon);
 literal_lex!(rarrow_punctuation, "->", Tok::RightArrow);
 fn lex_punctuations(input: &[u8]) -> IResult<&[u8], Tok> {
     alt((
@@ -103,6 +104,8 @@ fn lex_ident_and_keyword(input: &[u8]) -> IResult<&[u8], Tok> {
                 "true" => Tok::Bool(true),
                 "false" => Tok::Bool(false),
                 "return" => Tok::KwdRet,
+                "val" => Tok::KwdVal,
+                "var" => Tok::KwdVar,
                 _ => Tok::Ident(syntax.to_string())
             })
         }

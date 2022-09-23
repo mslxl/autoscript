@@ -3,18 +3,19 @@ use crate::frontend::ast::TypeInfo::TypeSym;
 pub type Block = Vec<StmtNode>;
 
 #[derive(Debug, PartialEq)]
-pub enum StmtNode{
+pub enum StmtNode {
     ExprStmt(Box<ExprNode>),
     RetStmt(Option<Box<ExprNode>>),
+    VarStmt(String, Option<TypeRef>, bool, Box<ExprNode>),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Program{
-    Function{
+pub enum Program {
+    Function {
         name: String,
         param: Option<Vec<(String, TypeRef)>>,
         ret: Option<TypeRef>,
-        block: Block
+        block: Block,
     }
 }
 
@@ -22,7 +23,7 @@ pub enum Program{
 pub struct TypeRef(pub String);
 
 #[derive(Debug, PartialEq)]
-pub enum ExprNode{
+pub enum ExprNode {
     Integer(i64),
     Float(f64),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
@@ -30,7 +31,7 @@ pub enum ExprNode{
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Op{
+pub enum Op {
     Add,
     Sub,
     Mul,
@@ -42,33 +43,40 @@ pub enum Op{
     Ne,
     Gt,
     Ge,
-    InfixFn(String)
+    InfixFn(String),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum UnaryOp{
+pub enum UnaryOp {
     Plus,
     Minus,
-    Not
+    Not,
 }
 
-#[derive(Eq, PartialEq,Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub enum TypeInfo {
     Int,
     Float,
     Bool,
     Unit,
-    TypeSym(String)
+    TypeSym(String),
 }
-impl From<&str> for TypeInfo{
-    fn from(tok: &str) -> Self{
-        match tok{
+
+impl From<&str> for TypeInfo {
+    fn from(tok: &str) -> Self {
+        match tok {
             "int" => TypeInfo::Int,
             "float" => TypeInfo::Float,
             "bool" => TypeInfo::Bool,
             "unit" => TypeInfo::Unit,
             oth => TypeSym(String::from(oth))
         }
+    }
+}
+
+impl From<TypeRef> for TypeInfo{
+    fn from(refer: TypeRef) -> Self {
+        Self::from(refer.0.as_str())
     }
 }
 

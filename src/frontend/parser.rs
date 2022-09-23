@@ -1,4 +1,3 @@
-
 use nom::branch::alt;
 use nom::bytes::complete::take;
 use nom::combinator::{map, opt, verify};
@@ -6,7 +5,7 @@ use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
-use nom::sequence::{delimited, pair, terminated, tuple};
+use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use crate::frontend::ast::{Block, ExprNode, Op, Program, StmtNode, TypeRef, UnaryOp};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
@@ -33,11 +32,17 @@ tag_token!(lparen_tag, Tok::LParen);
 tag_token!(rparen_tag, Tok::RParen);
 tag_token!(lbrace_tag, Tok::LBrace);
 tag_token!(rbrace_tag, Tok::RBrace);
+tag_token!(assign_tag, Tok::Assign);
 tag_token!(semicolon_tag, Tok::Semicolon);
+tag_token!(colon_tag, Tok::Colon);
 tag_token!(rarrow_tag, Tok::RightArrow);
 
 tag_token!(fn_kwd_tag, Tok::KwdFn);
 tag_token!(ret_kwd_tag, Tok::KwdRet);
+
+tag_token!(var_kwd_tag, Tok::KwdVal);
+tag_token!(val_kwd_tag, Tok::KwdVar);
+
 fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     let (i1, t1) = take(1usize)(input)?;
     if t1.tok.is_empty() {
@@ -152,10 +157,23 @@ fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     parse_equality(input)
 }
 
-fn parse_expr_stmt(input:Tokens) -> IResult<Tokens, StmtNode>{
+fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     map(terminated(parse_expr, opt(semicolon_tag)), |expr| {
         StmtNode::ExprStmt(expr)
     })(input)
+}
+
+fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+    let (i1, (kwd, id, ty, _, expr, _)) = tuple((
+        alt((val_kwd_tag, var_kwd_tag)),
+        parse_ident,
+        opt(preceded(colon_tag, parse_ident)),
+        assign_tag,
+        parse_expr,
+        opt(semicolon_tag)))(input)?;
+    let is_const = kwd.tok.first().unwrap() == &Tok::KwdVal;
+    let stmt = StmtNode::VarStmt(id, ty.map(TypeRef), is_const, expr);
+    Ok((i1, stmt))
 }
 
 fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
@@ -165,15 +183,24 @@ fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
 }
 
 fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
-    alt((parse_ret_stmt, parse_expr_stmt))(input)
+    alt((
+        parse_ret_stmt,
+        parse_expr_stmt,
+        parse_var_stmt))(input)
 }
 
-fn parse_block_stmt(input:Tokens) -> IResult<Tokens, Block> {
+fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {
     delimited(lbrace_tag, many0(parse_stmt), rbrace_tag)(input)
 }
 
 fn parse_func(input: Tokens) -> IResult<Tokens, Program> {
-    let (i1, (_, id, _, _, ret_value,block)) = tuple((fn_kwd_tag,parse_ident , lparen_tag, rparen_tag, opt(pair(rarrow_tag, parse_ident)), parse_block_stmt))(input).unwrap();
+    let (i1, (_, id, _, _, ret_value, block)) = tuple((
+        fn_kwd_tag,
+        parse_ident,
+        lparen_tag,
+        rparen_tag,
+        opt(pair(rarrow_tag, parse_ident)),
+        parse_block_stmt))(input).unwrap();
     let func = Program::Function {
         name: id,
         param: None,
@@ -181,7 +208,7 @@ fn parse_func(input: Tokens) -> IResult<Tokens, Program> {
             None => None,
             Some((_, id)) => Some(TypeRef(id)),
         },
-        block
+        block,
     };
     Ok((i1, func))
 }
@@ -221,14 +248,15 @@ mod tests {
                     ExprNode::Op(
                         Box::new(ExprNode::Integer(1)),
                         Op::Add,
-                        Box::new(ExprNode::Integer(1))
+                        Box::new(ExprNode::Integer(1)),
                     ));
     }
 
     #[test]
-    fn test_function(){
+    fn test_function() {
         let input =
             "fn test() -> i32{\
+                 val pi = 3.14159265;\
                  return 11 - 4.5;\
              }";
         let token = Lexer::lex_tokens(input.as_bytes());
@@ -236,7 +264,6 @@ mod tests {
         let program = Parser::parse(token);
         println!("{:#?}", program);
     }
-
 }
 
 
