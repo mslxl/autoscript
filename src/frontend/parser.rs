@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{map, opt, verify};
+use nom::combinator::{map, map_res, opt, verify};
 use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;
@@ -55,6 +55,10 @@ fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     }
 }
 
+fn parse_ident_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    map(parse_ident, |tok| Box::new(ExprNode::Ident(tok)))(input)
+}
+
 fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     let (i1, t1) = take(1usize)(input)?;
     if t1.tok.is_empty() {
@@ -74,7 +78,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        parse_num(input)
+        alt((parse_num, parse_ident_expr))(input)
     }
 }
 

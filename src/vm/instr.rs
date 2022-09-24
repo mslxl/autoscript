@@ -121,7 +121,11 @@ impl Instr{
             }
             Instr::Store(idx) => {
                 let slot = frame.operand_stack.pop().unwrap();
-                frame.local_vars.set(idx-1, slot)
+                frame.local_vars.set(*idx, slot)
+            }
+            Instr::Load(idx) => {
+                let slot = frame.local_vars.get(*idx).clone();
+                frame.operand_stack.push(slot);
             }
             Instr::Nop => {}
             _ => todo!("{}",self)

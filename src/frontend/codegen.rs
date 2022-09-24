@@ -132,7 +132,7 @@ impl CodeGen {
             StmtNode::ExprStmt(expr) => self.translate_expr(expr).instr + vec![Instr::Pop].into(),
             StmtNode::RetStmt(expr) => match expr {
                 Some(expr) => self.translate_expr(expr).instr + vec![Instr::ReturnValue].into(),
-                None => vec![Instr::ReturnValue].into()
+                None => vec![Instr::Return].into()
             },
             StmtNode::VarStmt(name, ty_expect, is_not_mut, expr) => {
                 let expr_ret = self.translate_expr(expr);
@@ -143,7 +143,7 @@ impl CodeGen {
                 }else{
                     (vec![].into(), expr_ret.ty.clone())
                 };
-                let slot_index= self.env.current_val_size() + 1;
+                let slot_index= self.env.current_val_size();
                 let var_info = VarInfo::new(ty,slot_index , !is_not_mut );
                 self.env.val_insert(name, var_info);
                 expr_ret.instr + convert_instr + vec![Instr::Store(slot_index)].into()
@@ -254,6 +254,13 @@ impl CodeGen {
                         }
                     }
                     _ => panic!("Unexpected operation: {:?}", op)
+                }
+            }
+            ExprNode::Ident(id) => {
+                let ident_info = self.env.val_lookup(&id).unwrap();
+                CodeGenInfo{
+                    instr: vec![Instr::Load(ident_info.binding_slot)].into(),
+                    ty: ident_info.ty.clone()
                 }
             }
             _ => todo!()

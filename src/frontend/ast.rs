@@ -26,6 +26,7 @@ pub struct TypeRef(pub String);
 pub enum ExprNode {
     Integer(i64),
     Float(f64),
+    Ident(String),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
     UnaryOp(UnaryOp, Box<ExprNode>),
 }

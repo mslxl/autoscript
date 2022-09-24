@@ -17,7 +17,7 @@ mul'   ::= "" | '*' mul' | '/' mul'
  */
 
 unary  ::= '-' unary | '+' unary | primary
-primary::= (expr) | num
+primary::= (expr) | num | identifity
 num    ::= integer | float
 
 
