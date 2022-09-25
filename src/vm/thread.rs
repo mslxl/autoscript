@@ -54,7 +54,7 @@ impl Thread{
 
     pub fn interpret(&mut self, module_name:&str, function_name:&str){
         let vm: &mut AutoScriptVM = unsafe {&mut *self.interp};
-        let module = vm.loader.request(module_name).unwrap();
+        let module = vm.module_man.get(module_name).unwrap();
         let function = module.get_function_prototype(function_name).unwrap();
         self.push_frame(function.local_var_size);
 
@@ -73,13 +73,15 @@ impl Thread{
 pub struct Frame{
     pub local_vars: LocalVars,
     pub operand_stack: Vec<Slot>,
+    pub pc: usize,
 }
 
 impl Frame{
     fn with_cap(size:usize) -> Self{
         Self{
             local_vars: LocalVars::with_cap(size),
-            operand_stack: Vec::new()
+            operand_stack: Vec::new(),
+            pc: 0,
         }
     }
 }

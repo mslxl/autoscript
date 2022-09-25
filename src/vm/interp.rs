@@ -1,52 +1,18 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::frontend::ast::TypeInfo;
+use crate::AutoScriptLoader;
+use crate::frontend::ast::{Program, TypeInfo};
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
 
-#[derive(Debug)]
-pub struct AutoScriptLoader {
-    load_path:Vec<String>,
-    modules: HashMap<String, AutoScriptModule>
-}
-
-impl AutoScriptLoader{
-    pub fn new() -> Self{
-        Self{
-            load_path: Vec::new(),
-            modules: HashMap::new()
-        }
-    }
-    pub fn request(&mut self, module_name:&str) -> Option<&AutoScriptModule>{
-        if self.modules.contains_key(module_name) {
-            self.modules.get(module_name)
-        }else{
-            if let Some(module) = self.load(module_name) {
-                self.modules.insert(module_name.to_owned(), module);
-                self.modules.get(module_name)
-            }else{
-                None
-            }
-        }
-    }
-    pub fn put_module(&mut self, module_name:&str, module:AutoScriptModule){
-        self.modules.insert(module_name.to_owned(), module);
-    }
-
-    fn load(&mut self, module_name:&str) -> Option<AutoScriptModule>{
-        self.load_local(module_name)
-    }
-
-    fn load_local(&mut self, module_name:&str) -> Option<AutoScriptModule>{
-        todo!()
-    }
-}
+pub type AutoScriptModuleMan = HashMap<String, AutoScriptModule>;
 
 #[derive(Debug)]
 pub struct AutoScriptModule{
     // temporary implementations
+    name: String,
     functions: HashMap<String, FunctionPrototype>
 }
 
@@ -59,13 +25,16 @@ impl AutoScriptModule{
     }
 }
 
-impl Default for AutoScriptModule{
-    fn default() -> Self {
+impl AutoScriptModule{
+    fn new(name:String) -> Self{
         Self{
+            name,
             functions: HashMap::new()
         }
     }
 }
+
+
 #[derive(Debug)]
 pub struct FunctionPrototype{
     pub name: String,
@@ -75,16 +44,16 @@ pub struct FunctionPrototype{
 }
 #[derive(Debug)]
 pub struct AutoScriptVM {
-    pub loader: AutoScriptLoader,
+    pub module_man: AutoScriptModuleMan,
     main_thread: Thread,
     pub mem : Arc<Mem>
 }
 
 impl AutoScriptVM {
-    pub fn new(loader: AutoScriptLoader) -> Self {
+    pub fn new(modules: AutoScriptModuleMan) -> Self {
         let mut interp = unsafe{
             Self{
-                loader,
+                module_man: modules,
                 main_thread: Thread::new_dangle(),
                 mem: Arc::new(Mem::new())
             }

@@ -6,7 +6,7 @@ use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use crate::frontend::ast::{Block, ExprNode, Op, Program, StmtNode, TypeRef, UnaryOp};
+use crate::frontend::ast::{Block, ExprNode, FunctionHeader, Op, Program, StmtNode, TypeRef, UnaryOp};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
@@ -36,12 +36,15 @@ tag_token!(assign_tag, Tok::Assign);
 tag_token!(semicolon_tag, Tok::Semicolon);
 tag_token!(colon_tag, Tok::Colon);
 tag_token!(rarrow_tag, Tok::RightArrow);
+tag_token!(comma_tag, Tok::Comma);
 
 tag_token!(fn_kwd_tag, Tok::KwdFn);
 tag_token!(ret_kwd_tag, Tok::KwdRet);
 
 tag_token!(var_kwd_tag, Tok::KwdVal);
 tag_token!(val_kwd_tag, Tok::KwdVar);
+
+tag_token!(import_kwd_tag, Tok::KwdImport);
 
 fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     let (i1, t1) = take(1usize)(input)?;
@@ -197,32 +200,52 @@ fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {
     delimited(lbrace_tag, many0(parse_stmt), rbrace_tag)(input)
 }
 
+fn parse_func_params(input: Tokens) -> IResult<Tokens, Vec<(String, TypeRef)>> {
+    fn parse_func_param_item(input: Tokens) -> IResult<Tokens, (String, TypeRef)> {
+        map(tuple((parse_ident, colon_tag, parse_ident)), |item| (item.0, TypeRef(item.2)))(input)
+    }
+    let (i1, (param, mut params)) = pair(parse_func_param_item, many0(preceded(comma_tag, parse_func_param_item)))(input)?;
+    params.insert(0, param);
+    Ok((i1, params))
+}
+
 fn parse_func(input: Tokens) -> IResult<Tokens, Program> {
-    let (i1, (_, id, _, _, ret_value, block)) = tuple((
+    let (i1, (_, id, _, params, _, ret_value, block)) = tuple((
         fn_kwd_tag,
         parse_ident,
         lparen_tag,
+        opt(parse_func_params),
         rparen_tag,
         opt(pair(rarrow_tag, parse_ident)),
-        parse_block_stmt))(input).unwrap();
+        parse_block_stmt))(input)?;
     let func = Program::Function {
-        name: id,
-        param: None,
-        ret: match ret_value {
-            None => None,
-            Some((_, id)) => Some(TypeRef(id)),
+        header: FunctionHeader{
+            name: id,
+            param: params,
+            ret: match ret_value {
+                None => None,
+                Some((_, id)) => Some(TypeRef(id)),
+            },
         },
         block,
     };
     Ok((i1, func))
 }
 
+fn parse_import(input: Tokens) -> IResult<Tokens, Program> {
+    let (i1, (_, module_name, _)) = tuple((import_kwd_tag, parse_ident, opt(semicolon_tag)))(input)?;
+    Ok((i1, Program::Import(module_name)))
+}
+
+fn parse_program(input: Tokens) -> IResult<Tokens, Program> {
+    alt((parse_func, parse_import))(input)
+}
 
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens) -> Program {
-        let (i1, program) = parse_func(tokens).unwrap();
+    pub fn parse(tokens: Tokens) -> Vec<Program> {
+        let (i1, program) = many0(parse_program)(tokens).unwrap();
         assert!(i1.tok.is_empty());
         program
     }

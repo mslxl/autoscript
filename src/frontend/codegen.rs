@@ -1,19 +1,19 @@
 use std::collections::HashMap;
-use std::env::var;
 use std::hash::Hash;
 use std::rc::Rc;
-use nom::Parser;
-use crate::frontend::ast::{ExprNode, Op, Program, StmtNode, TypeInfo, TypeRef, UnaryOp};
-use crate::FunctionPrototype;
+use crate::frontend::ast::{ExprNode, FunctionHeader, Op, Program, StmtNode, TypeInfo, TypeRef, UnaryOp};
 use crate::vm::instr::{Instr, Instructions};
+use crate::vm::interp::{AutoScriptModule, FunctionPrototype};
 
 pub struct CodeGen{
-    env: Env
+    env: Env,
+    registered_function: HashMap<String, FunctionHeader>
 }
 impl Default for CodeGen{
     fn default() -> Self {
         Self{
-            env: Env::default()
+            env: Env::default(),
+            registered_function: HashMap::new()
         }
     }
 }
@@ -95,14 +95,15 @@ pub struct CodeGenInfo {
 impl CodeGen {
     pub fn new() -> Self {
         Self{
-            env: Env::default()
+            env: Env::default(),
+            registered_function: HashMap::new()
         }
     }
 
     fn translate_function(&mut self, program: Program) -> FunctionPrototype {
         self.env.push_scope();
         if let Program::Function {
-            name, param, ret, block
+            header, block
         } = program {
             let instr = block.into_iter()
                 .map(|stmt| self.translate_stmt(stmt))
@@ -114,10 +115,10 @@ impl CodeGen {
             self.env.pop_scope();
 
             FunctionPrototype{
-                name,
+                name: header.name,
                 local_var_size: table_size,
                 code: Rc::new(instr),
-                ret: TypeInfo::from(ret.unwrap_or(TypeRef(String::from("unit"))).0.as_str())
+                ret: TypeInfo::from(header.ret.unwrap_or(TypeRef(String::from("unit"))).0.as_str())
             }
 
 
@@ -152,7 +153,7 @@ impl CodeGen {
         }
     }
 
-    pub fn try_convert_type(&mut self, from: &TypeInfo, target:&TypeInfo) -> Instructions {
+    fn try_convert_type(&mut self, from: &TypeInfo, target:&TypeInfo) -> Instructions {
         if from == target {
             vec![].into()
         }else if from== &TypeInfo::Int && target== &TypeInfo::Float{
@@ -162,9 +163,15 @@ impl CodeGen {
         }
     }
 
-    pub fn translate_program(&mut self, program:Program) -> FunctionPrototype{
+    fn translate_program(&mut self, program:Program) -> FunctionPrototype{
         self.translate_function(program)
     }
+
+    pub fn translate_module(&mut self, modules: Vec<Program>) -> Vec<AutoScriptModule>{
+        todo!()
+    }
+
+
 
     fn translate_expr(&mut self, expr: Box<ExprNode>) -> CodeGenInfo {
         match *expr {

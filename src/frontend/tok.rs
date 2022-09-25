@@ -17,11 +17,13 @@ pub enum Tok {
     Semicolon,
     Colon,
     RightArrow,
+    Comma,
     // keyword
     KwdFn,
     KwdRet,
     KwdVar,
     KwdVal,
+    KwdImport,
 
 
     // operator

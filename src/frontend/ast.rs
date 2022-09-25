@@ -10,11 +10,17 @@ pub enum StmtNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FunctionHeader{
+    pub name:String,
+    pub param: Option<Vec<(String,TypeRef)>>,
+    pub ret:Option<TypeRef>
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Program {
+    Import(String),
     Function {
-        name: String,
-        param: Option<Vec<(String, TypeRef)>>,
-        ret: Option<TypeRef>,
+        header: FunctionHeader,
         block: Block,
     }
 }
