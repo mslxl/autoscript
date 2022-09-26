@@ -5,7 +5,11 @@ fn main(){
     return num * ww / num;
 }
 
-fn add(a:int, b:int){
+fn add(a:int, b:int) -> int{
    val result = 1 + 3;
    return result;
+}
+
+fn add(a:float, b:float) -> float{
+   return 3-1.0;
 }

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::{env, fs};
 use std::path::PathBuf;
-use crate::frontend::ast::Program;
+use crate::frontend::ast::{FunctionHeader, ProgramSrcModule, ProgramSrcElement, ProgramSrcFnElement};
 use crate::frontend::codegen::CodeGen;
 use crate::frontend::lexer::Lexer;
 use crate::frontend::parser::Parser;
@@ -11,9 +11,7 @@ pub struct AutoScriptLoader {
     load_path: Vec<PathBuf>,
     file_queue: Vec<PathBuf>,
     loaded_file: HashSet<PathBuf>,
-    generator: CodeGen,
-
-    modules: HashMap<String, Vec<Program>>,
+    modules: HashMap<String, Vec<ProgramSrcElement>>,
 }
 
 impl AutoScriptLoader {
@@ -22,7 +20,6 @@ impl AutoScriptLoader {
             load_path: vec![env::current_dir().unwrap()],
             file_queue: Vec::new(),
             loaded_file: Default::default(),
-            generator: CodeGen::new(),
             modules: HashMap::new(),
         }
     }
@@ -60,7 +57,7 @@ impl AutoScriptLoader {
             .into_iter()
             .filter(|e| {
                 match &e {
-                    Program::Import(module_name) => {
+                    ProgramSrcElement::Import(module_name) => {
                         self.add_module(module_name).unwrap();
                         false
                     }
@@ -72,7 +69,27 @@ impl AutoScriptLoader {
 
         Ok(())
     }
-    pub fn unwrap(self) -> HashMap<String, Vec<Program>>{
-        self.modules
+    pub fn unwrap(self) -> HashMap<String, ProgramSrcModule> {
+        let mut map: HashMap<String, ProgramSrcModule> = HashMap::new();
+        for (module_name, element_vec) in self.modules {
+            let mut functions = HashMap::new();
+            for element in element_vec {
+                match element {
+                    ProgramSrcElement::Function(f) => {
+                        if !functions.contains_key(&f.header.name) {
+                            functions.insert(f.header.name.clone(), Vec::new());
+                        }
+                        functions.get_mut(&f.header.name).unwrap().push(f);
+                    }
+                    _ => todo!("以后会有其他的元素")
+                }
+            }
+
+            let module = ProgramSrcModule {
+                function: functions
+            };
+            map.insert(module_name, module);
+        }
+        map
     }
 }
