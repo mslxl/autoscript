@@ -27,6 +27,8 @@ tag_token!(ge_tag, Tok::Ge);
 tag_token!(gt_tag, Tok::Gt);
 tag_token!(eq_tag, Tok::Eq);
 tag_token!(ne_tag, Tok::Ne);
+tag_token!(and_tag, Tok::And);
+tag_token!(or_tag, Tok::Or);
 
 tag_token!(lparen_tag, Tok::LParen);
 tag_token!(rparen_tag, Tok::RParen);
@@ -75,13 +77,25 @@ fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     }
 }
 
+fn parse_bool(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, t1) = take(1usize)(input)?;
+    if t1.tok.is_empty() {
+        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+    } else {
+        match t1.tok.first().unwrap() {
+            Tok::Bool(b) => Ok((i1, Box::new(ExprNode::Bool(*b)))),
+            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+        }
+    }
+}
+
 fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     let fst_match = tuple((lparen_tag, parse_expr, rparen_tag))(input);
     if fst_match.is_ok() {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        alt((parse_num, parse_fn_call ,parse_ident_expr))(input)
+        alt((parse_num, parse_fn_call, parse_ident_expr, parse_bool))(input)
     }
 }
 
@@ -160,6 +174,19 @@ fn parse_equality(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     }
 }
 
+fn parse_logic(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, (mut lhs, seq)) = pair(parse_equality, many0(pair(alt((and_tag, or_tag)), parse_equality)))(input)?;
+    for (tokens, rhs) in seq {
+        let op = match tokens.tok.first().unwrap() {
+            Tok::And => Op::And,
+            Tok::Or => Op::Or,
+            _ => unreachable!()
+        };
+        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+    }
+    Ok((i1, lhs))
+}
+
 fn parse_comma_expr(input: Tokens) -> IResult<Tokens, Vec<Box<ExprNode>>> {
     let (i1, (expr, mut exprs)) = pair(parse_expr, many0(preceded(comma_tag, parse_expr)))(input)?;
     exprs.insert(0, expr);
@@ -173,7 +200,7 @@ fn parse_fn_call(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
 }
 
 fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    parse_equality(input)
+    parse_logic(input)
 }
 
 fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {

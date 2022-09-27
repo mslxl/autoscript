@@ -7,6 +7,7 @@ name = "autoscript"
 version = "0.1.0"
 dependencies = [
  "nom",
+ "num-cmp",
 ]
 
 [[package]]
@@ -30,3 +31,9 @@ dependencies = [
  "memchr",
  "minimal-lexical",
 ]
+
+[[package]]
+name = "num-cmp"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63335b2e2c34fae2fb0aa2cecfd9f0832a1e24b3b32ecec612c3426d46dc8aaa"

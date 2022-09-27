@@ -22,7 +22,12 @@ fn main() {
     let modules = codegen.translate_modules();
     let main_module_name = file.file_stem().unwrap().to_str().unwrap();
 
-    let mut vm = AutoScriptVM::new(modules);
-    vm.start(main_module_name)
 
+    let mut vm = AutoScriptVM::new(modules);
+
+    let start_time = std::time::SystemTime::now();
+    vm.start(main_module_name);
+    let end_time = std::time::SystemTime::now();
+    let cost_time = end_time.duration_since(start_time).unwrap().as_millis();
+    println!("Cost {}ms", cost_time);
 }

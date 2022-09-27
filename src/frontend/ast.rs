@@ -124,6 +124,7 @@ pub enum ProgramSrcElement {
 pub enum ExprNode {
     Integer(i64),
     Float(f64),
+    Bool(bool),
     Ident(String),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
     FnCall(String ,Option<Vec<Box<ExprNode>>>),
@@ -143,6 +144,8 @@ pub enum Op {
     Ne,
     Gt,
     Ge,
+    And,
+    Or,
     InfixFn(String),
 }
 

@@ -1,4 +1,5 @@
-use std::fmt::{Display, Formatter};
+use std::cmp::Ordering;
+use std::fmt::{Display, Formatter, write};
 use std::ops;
 use std::rc::Rc;
 use crate::vm::slot::Slot;
@@ -24,6 +25,17 @@ pub enum Instr {
     FDiv,
     FNeg,
     FRem,
+
+    BPush(bool),
+    BAnd,
+    BOr,
+
+    CmpEq,
+    CmpNe,
+    CmpLe,
+    CmpLt,
+    CmpGe,
+    CmpGt,
 
     Store(usize),
     Load(usize),
@@ -158,6 +170,55 @@ impl Instr {
                     }
                 }
             }
+            Instr::BPush(b) => {
+                frame.operand_stack.push(Slot::Bool(*b))
+            }
+            Instr::BAnd => {
+                let v2 = frame.operand_stack.pop().unwrap().get_bool();
+                let v1 = frame.operand_stack.pop().unwrap().get_bool();
+                frame.operand_stack.push(Slot::Bool(v2 && v1));
+            }
+            Instr::BOr => {
+                let v2 = frame.operand_stack.pop().unwrap().get_bool();
+                let v1 = frame.operand_stack.pop().unwrap().get_bool();
+                frame.operand_stack.push(Slot::Bool(v2 || v1));
+            }
+            Instr::CmpGt => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 > v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
+            Instr::CmpGe => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 >= v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
+            Instr::CmpLe => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 <= v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
+            Instr::CmpLt => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 < v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
+            Instr::CmpEq => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 == v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
+            Instr::CmpNe => {
+                let v2 = frame.operand_stack.pop().unwrap();
+                let v1 = frame.operand_stack.pop().unwrap();
+                let result = v1 != v2;
+                frame.operand_stack.push(Slot::Bool(result));
+            }
             Instr::Nop => {}
             _ => todo!("{}", self)
         }
@@ -224,6 +285,15 @@ impl Display for Instr {
             Instr::FDiv => write!(f, "fdiv"),
             Instr::FNeg => write!(f, "fneg"),
             Instr::FRem => write!(f, "frem"),
+            Instr::BPush(b) => write!(f, "bpush {}", b),
+            Instr::BAnd => write!(f, "band"),
+            Instr::BOr => write!(f, "bor"),
+            Instr::CmpEq => write!(f, "cmp_eq"),
+            Instr::CmpNe => write!(f, "cmp_ne"),
+            Instr::CmpGt => write!(f, "cmp_gt"),
+            Instr::CmpGe => write!(f, "cmp_ge"),
+            Instr::CmpLt => write!(f, "cmp_lt"),
+            Instr::CmpLe => write!(f, "cmp_le"),
             Instr::ReturnValue => write!(f, "retv"),
             Instr::Return => write!(f, "ret"),
             Instr::Nop => write!(f, "nop"),

@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 nom = {version="7", default-features = true}
+num-cmp = "0.1.0"

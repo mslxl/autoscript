@@ -1,5 +1,8 @@
 S      ::= expr
-expr   ::= equality
+expr   ::= logic
+
+
+logic ::= logic "&&" equality | logic "||" equality | equality
 
 equality ::= relational "==" relational | relational "!=" relational | relational
 relational ::= add "<" add | add "<=" add | add ">" add | add ">=" add | add

@@ -194,6 +194,10 @@ impl CodeGen {
                 instr: vec![Instr::FPush(*float)].into(),
                 ty: TypeInfo::Float,
             },
+            ExprNode::Bool(boolean) => CodeGenInfo{
+                instr: vec![Instr::BPush(*boolean)].into(),
+                ty:TypeInfo::Bool,
+            },
             ExprNode::Op(left, op, right) => {
                 let mut left_expr = self.translate_expr(left, cur_module);
                 let mut right_expr = self.translate_expr(right, cur_module);
@@ -218,6 +222,30 @@ impl CodeGen {
                         Op::Rem => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::IRem].into(),
                             ty: TypeInfo::Int,
+                        },
+                        Op::Ge => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Ge => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Gt => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGt].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Eq => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpEq].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Lt => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLt].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Le => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLe].into(),
+                            ty: TypeInfo::Bool
                         },
                         _ => panic!()
                     }
@@ -247,9 +275,45 @@ impl CodeGen {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::FRem].into(),
                             ty: TypeInfo::Float,
                         },
+                        Op::Ge => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Ge => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Gt => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGt].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Eq => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpEq].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Lt => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLt].into(),
+                            ty: TypeInfo::Bool
+                        },
+                        Op::Le => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLe].into(),
+                            ty: TypeInfo::Bool
+                        },
                         _ => panic!()
                     }
-                } else {
+                } else if left_expr.ty == TypeInfo::Bool && right_expr.ty == TypeInfo::Bool {
+                    match op {
+                        Op::And => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::BAnd].into(),
+                            ty: TypeInfo::Bool
+                        } ,
+                        Op::Or => CodeGenInfo{
+                            instr: left_expr.instr + right_expr.instr + vec![Instr::BOr].into(),
+                            ty: TypeInfo::Bool
+                        } ,
+                        _ =>  panic!()
+                    }
+                }else{
                     todo!()
                 }
             }
@@ -266,7 +330,10 @@ impl CodeGen {
                                 instr: sub_expr.instr + vec![Instr::INeg].into(),
                                 ty: TypeInfo::Int,
                             },
-                            TypeInfo::Float => todo!(),
+                            TypeInfo::Float => CodeGenInfo {
+                                instr: sub_expr.instr + vec![Instr::FNeg].into(),
+                                ty: TypeInfo::Float,
+                            },
                             _ => panic!()
                         }
                     }

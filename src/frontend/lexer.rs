@@ -29,6 +29,8 @@ literal_lex!(ge_op, ">=", Tok::Ge);
 literal_lex!(le_op, "<=", Tok::Le);
 literal_lex!(gt_op, ">", Tok::Gt);
 literal_lex!(lt_op, "<", Tok::Lt);
+literal_lex!(and_op, "&&", Tok::And);
+literal_lex!(or_op, "||", Tok::Or);
 
 fn lex_operator(input: &[u8]) -> IResult<&[u8], Tok> {
     alt((
@@ -44,7 +46,9 @@ fn lex_operator(input: &[u8]) -> IResult<&[u8], Tok> {
         ge_op,
         le_op,
         gt_op,
-        lt_op
+        lt_op,
+        and_op,
+        or_op
     ))(input)
 }
 

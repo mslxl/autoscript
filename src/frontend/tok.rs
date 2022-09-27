@@ -34,6 +34,9 @@ pub enum Tok {
     Rem,
     Assign,
 
+    And,
+    Or,
+
     Eq,
     Ne,
     Lt,
