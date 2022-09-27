@@ -17,7 +17,8 @@ mul'   ::= "" | '*' mul' | '/' mul'
  */
 
 unary  ::= '-' unary | '+' unary | primary
-primary::= (expr) | num | identifity
+primary::= (expr) | num | identifity | function_call
+function_call ::= identifity "("  ")"
 num    ::= integer | float
 
 

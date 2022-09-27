@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::rc::Rc;
 use crate::vm::instr::{Instr, Instructions};
 
@@ -6,11 +5,6 @@ pub trait AutoScriptInstrReader{
     fn read_instr(&mut self) -> Instr;
     fn set_pc(&mut self, pc:usize);
     fn pc(&self) -> usize;
-}
-
-pub struct BytecodeReader{
-    code:Rc<Vec<u8>>,
-    pc: RefCell<usize>,
 }
 
 pub struct InstrReader{
@@ -28,6 +22,8 @@ impl AutoScriptInstrReader for InstrReader{
         self.pc += pc;
     }
 
+
+
     fn pc(&self) -> usize {
         self.pc
     }
@@ -42,5 +38,10 @@ impl InstrReader{
     }
     pub fn is_unfinished(&self) -> bool {
         return self.pc < self.instr.len()
+    }
+
+    pub fn reset(&mut self, instr: Rc<Instructions>, pc:usize){
+        self.instr = instr;
+        self.pc = pc;
     }
 }

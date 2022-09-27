@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::AutoScriptLoader;
-use crate::frontend::ast::{FunctionHeader, ProgramSrcElement, TypeInfo};
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
@@ -14,7 +12,7 @@ pub type FnSignature = String;
 pub struct AutoScriptModule {
     // temporary implementations
     name: String,
-    functions: HashMap<FnSignature, FunctionPrototype>,
+    functions: HashMap<FnSignature, Rc<FunctionPrototype>>,
 }
 
 impl AutoScriptModule {
@@ -25,10 +23,10 @@ impl AutoScriptModule {
         }
     }
     pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: FunctionPrototype) {
-        self.functions.insert(signature, prototype);
+        self.functions.insert(signature, Rc::new(prototype));
     }
-    pub fn get_function_prototype(&self, signature: &str) -> Option<&FunctionPrototype> {
-        self.functions.get(signature)
+    pub fn get_function_prototype(&self, signature: &str) -> Option<Rc<FunctionPrototype>> {
+        self.functions.get(signature).map(Rc::clone)
     }
 }
 
@@ -37,8 +35,8 @@ impl AutoScriptModule {
 pub struct FunctionPrototype {
     pub name: String,
     pub signature: String,
-
     pub local_var_size: usize,
+    pub arg_num: usize,
     pub code: Rc<Instructions>,
 }
 
@@ -64,7 +62,7 @@ impl AutoScriptVM {
     }
 
     pub fn start(&mut self, start_module: &str) {
-        self.main_thread.interpret(start_module, "main")
+        self.main_thread.start(start_module, "V@main(V")
     }
 
     fn new_thread(&mut self) -> Thread {

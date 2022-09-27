@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::ops;
+use std::rc::Rc;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
 
@@ -34,13 +35,17 @@ pub enum Instr {
     Nop,
 }
 
-impl Instr{
-    pub fn execute(&self, frame: &mut Frame){
-        match self{
+impl Instr {
+    pub fn execute(&self, frame: &mut Frame) {
+        unsafe {
+            println!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
+        }
+
+        match self {
             Instr::IPush(value) => {
                 let slot = Slot::Int(*value as i64);
                 frame.operand_stack.push(slot);
-            },
+            }
             Instr::IAdd => {
                 let v2 = frame.operand_stack.pop().unwrap().get_int();
                 let v1 = frame.operand_stack.pop().unwrap().get_int();
@@ -85,7 +90,7 @@ impl Instr{
             Instr::FAdd => {
                 let v2 = frame.operand_stack.pop().unwrap().get_float();
                 let v1 = frame.operand_stack.pop().unwrap().get_float();
-                frame.operand_stack.push(Slot::Float(v1 % v2));
+                frame.operand_stack.push(Slot::Float(v1 + v2));
             }
             Instr::FSub => {
                 let v2 = frame.operand_stack.pop().unwrap().get_float();
@@ -111,14 +116,6 @@ impl Instr{
                 let v1 = frame.operand_stack.pop().unwrap().get_float();
                 frame.operand_stack.push(Slot::Float(v1 % v2));
             }
-            Instr::ReturnValue => {
-                println!("Top: {:?}", frame.operand_stack.first());
-                todo!()
-            }
-            Instr::Return => {
-                println!("Top: {:?}", frame.operand_stack.first());
-                todo!()
-            }
             Instr::Store(idx) => {
                 let slot = frame.operand_stack.pop().unwrap();
                 frame.local_vars.set(*idx, slot)
@@ -127,40 +124,74 @@ impl Instr{
                 let slot = frame.local_vars.get(*idx).clone();
                 frame.operand_stack.push(slot);
             }
+            Instr::Call(fn_signature) => {
+                unsafe {
+                    let thread = frame.thread.as_mut().unwrap();
+                    let vm = thread.vm.as_ref().unwrap();
+                    //TODO
+                    let fn_prototype = vm.module_man.get("hello").unwrap().get_function_prototype(fn_signature).unwrap();
+                    let new_frame = thread.push_new_frame(fn_prototype.local_var_size, Rc::clone(&fn_prototype));
+                    for i in 0..fn_prototype.arg_num {
+                        let idx = fn_prototype.arg_num - i - 1;
+                        let slot = frame.operand_stack.pop().unwrap();
+                        new_frame.local_vars.set(idx, slot)
+                    }
+                }
+            }
+            Instr::ReturnValue => {
+                unsafe {
+                    let thread = frame.thread.as_mut().unwrap();
+                    let value = frame.operand_stack.pop().unwrap();
+                    thread.pop_frame();
+                    thread.current_frame_mut().operand_stack.push(value);
+                }
+            }
+            Instr::Return => {
+                unsafe {
+                    let thread = frame.thread.as_mut().unwrap();
+                    let frame = thread.pop_frame().unwrap();
+
+                    println!("Process finish. Local variable table:");
+                    let table = frame.local_vars;
+                    for i in 0..table.len() {
+                        println!("{}\t: {:?}", i, table.get(i))
+                    }
+                }
+            }
             Instr::Nop => {}
-            _ => todo!("{}",self)
+            _ => todo!("{}", self)
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instructions(Vec<Instr>);
 
-impl Instructions{
-    pub fn new() -> Self{
+impl Instructions {
+    pub fn new() -> Self {
         Instructions(Vec::new())
     }
-    pub fn get_instr(&self,index:usize) -> Option<Instr> {
+    pub fn get_instr(&self, index: usize) -> Option<Instr> {
         self.0.get(index).cloned()
     }
-    pub fn len(&self) -> usize{
+    pub fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl From<Vec<Instr>> for Instructions{
+impl From<Vec<Instr>> for Instructions {
     fn from(s: Vec<Instr>) -> Self {
         Self(s)
     }
 }
 
-impl Into<Vec<Instr>> for Instructions{
+impl Into<Vec<Instr>> for Instructions {
     fn into(self) -> Vec<Instr> {
         self.0
     }
 }
 
-impl ops::Add for Instructions{
+impl ops::Add for Instructions {
     type Output = Instructions;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -172,11 +203,11 @@ impl ops::Add for Instructions{
 }
 
 
-impl Display for Instr{
+impl Display for Instr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self{
+        match self {
             Instr::IPush(v) => write!(f, "ipush {}", v),
-            Instr::IAdd => write!(f,"iadd"),
+            Instr::IAdd => write!(f, "iadd"),
             Instr::ISub => write!(f, "isub"),
             Instr::IMul => write!(f, "imul"),
             Instr::IDiv => write!(f, "idiv"),
@@ -203,9 +234,9 @@ impl Display for Instr{
     }
 }
 
-impl Display for Instructions{
+impl Display for Instructions {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for instr in &self.0{
+        for instr in &self.0 {
             write!(f, "{}\n", instr)?
         }
         Ok(())

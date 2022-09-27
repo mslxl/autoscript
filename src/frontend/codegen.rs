@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
-use crate::frontend::ast::{ExprNode, FunctionHeader, Op, ProgramSrcElement, ProgramSrcFnElement, ProgramSrcModule, StmtNode, TypeInfo, TypeRef, UnaryOp};
+use crate::frontend::ast::{ExprNode, Op, ProgramSrcElement, ProgramSrcFnElement, ProgramSrcModule, StmtNode, TypeInfo, UnaryOp};
 use crate::vm::instr::{Instr, Instructions};
 use crate::vm::interp::{AutoScriptModule, AutoScriptModuleMan, FunctionPrototype};
 
@@ -97,12 +96,23 @@ impl CodeGen {
         }
     }
 
-    fn translate_function(&mut self, program: &ProgramSrcFnElement) -> FunctionPrototype {
+    fn translate_function(&mut self, program: &ProgramSrcFnElement, cur_module: &str) -> FunctionPrototype {
         self.env.push_scope();
-
-
+        let arg_num = if let Some(ref param) = program.header.param {
+            for i in param {
+                let slot_id = self.env.current_val_size();
+                self.env.val_insert(i.0.clone(), VarInfo {
+                    ty: i.1.clone(),
+                    binding_slot: slot_id,
+                    is_mut: false,
+                })
+            }
+            param.len()
+        } else {
+            0
+        };
         let instr = program.block.iter()
-            .map(|stmt| self.translate_stmt(stmt))
+            .map(|stmt| self.translate_stmt(stmt, cur_module))
             .reduce(|l, r| l + r)
             .unwrap();
         let table_size = self.env.current_val_size();
@@ -111,19 +121,20 @@ impl CodeGen {
             name: program.header.name.clone(),
             signature: program.header.signature(),
             local_var_size: table_size,
+            arg_num,
             code: Rc::new(instr),
         }
     }
 
-    fn translate_stmt(&mut self, stmt: &StmtNode) -> Instructions {
+    fn translate_stmt(&mut self, stmt: &StmtNode, cur_module: &str) -> Instructions {
         match stmt {
-            StmtNode::ExprStmt(expr) => self.translate_expr(expr).instr + vec![Instr::Pop].into(),
+            StmtNode::ExprStmt(expr) => self.translate_expr(expr, cur_module).instr + vec![Instr::Pop].into(),
             StmtNode::RetStmt(expr) => match expr {
-                Some(expr) => self.translate_expr(expr).instr + vec![Instr::ReturnValue].into(),
+                Some(expr) => self.translate_expr(expr, cur_module).instr + vec![Instr::ReturnValue].into(),
                 None => vec![Instr::Return].into()
             },
             StmtNode::VarStmt(name, ty_expect, is_not_mut, expr) => {
-                let expr_ret = self.translate_expr(expr);
+                let expr_ret = self.translate_expr(expr, cur_module);
                 let ty_expect = ty_expect.clone().map(TypeInfo::from);
                 let (convert_instr, ty) = if let Some(ty_expect) = ty_expect {
                     let instr = self.try_convert_type(&expr_ret.ty, &ty_expect);
@@ -140,7 +151,7 @@ impl CodeGen {
         }
     }
 
-    fn try_convert_type(&mut self, from: &TypeInfo, target: &TypeInfo) -> Instructions {
+    fn try_convert_type(&self, from: &TypeInfo, target: &TypeInfo) -> Instructions {
         if from == target {
             vec![].into()
         } else if from == &TypeInfo::Int && target == &TypeInfo::Float {
@@ -151,12 +162,12 @@ impl CodeGen {
     }
 
 
-    pub fn translate_module(&mut self, name: &str) -> AutoScriptModule {
+    fn translate_module(&mut self, name: &str) -> AutoScriptModule {
         let src_module = self.modules.get(name).unwrap().clone();
         let mut module = AutoScriptModule::new(name.to_string());
         for element in src_module.function {
             for func in element.1 {
-                let prototype = self.translate_function(&func);
+                let prototype = self.translate_function(&func, name);
                 module.insert_function_prototype(prototype.signature.clone(), prototype);
             }
         }
@@ -164,7 +175,7 @@ impl CodeGen {
     }
 
     pub fn translate_modules(&mut self) -> AutoScriptModuleMan {
-        let keys:Vec<String> = self.modules.keys().map(|name| name.clone()).collect();
+        let keys: Vec<String> = self.modules.keys().map(|name| name.clone()).collect();
 
         HashMap::from_iter(keys.into_iter().map(|name| {
             let module = self.translate_module(name.as_str());
@@ -173,7 +184,7 @@ impl CodeGen {
     }
 
 
-    fn translate_expr(&mut self, expr: &Box<ExprNode>) -> CodeGenInfo {
+    fn translate_expr(&mut self, expr: &Box<ExprNode>, cur_module: &str) -> CodeGenInfo {
         match expr.as_ref() {
             ExprNode::Integer(integer) => CodeGenInfo {
                 instr: vec![Instr::IPush(*integer)].into(),
@@ -184,8 +195,8 @@ impl CodeGen {
                 ty: TypeInfo::Float,
             },
             ExprNode::Op(left, op, right) => {
-                let mut left_expr = self.translate_expr(left);
-                let mut right_expr = self.translate_expr(right);
+                let mut left_expr = self.translate_expr(left, cur_module);
+                let mut right_expr = self.translate_expr(right, cur_module);
                 if left_expr.ty == TypeInfo::Int && right_expr.ty == TypeInfo::Int {
                     match op {
                         Op::Add => CodeGenInfo {
@@ -243,7 +254,7 @@ impl CodeGen {
                 }
             }
             ExprNode::UnaryOp(op, expr) => {
-                let sub_expr = self.translate_expr(expr);
+                let sub_expr = self.translate_expr(expr, cur_module);
                 match op {
                     UnaryOp::Plus => CodeGenInfo {
                         instr: vec![].into(),
@@ -267,6 +278,54 @@ impl CodeGen {
                 CodeGenInfo {
                     instr: vec![Instr::Load(ident_info.binding_slot)].into(),
                     ty: ident_info.ty.clone(),
+                }
+            }
+            ExprNode::FnCall(fn_name, param) => {
+                let args: Option<Vec<CodeGenInfo>> = if let Some(exprs) = param {
+                    Some(exprs.iter().map(|e| self.translate_expr(e, cur_module)).collect())
+                } else {
+                    None
+                };
+
+                let types = args.as_ref()
+                    .map(|vec| vec.iter().map(|e| e.ty.clone())
+                        .collect::<Vec<TypeInfo>>());
+                let function_info = self.modules
+                    .get(cur_module)
+                    .unwrap()
+                    .search_function(fn_name, types.as_ref())
+                    .unwrap();
+                let args = if let Some(param) = args {
+                    let require_types = function_info.param
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| &x.1)
+                        .collect::<Vec<&TypeInfo>>();
+                    let args = param.into_iter()
+                        .zip(require_types)
+                        .map(|(a,e)| {
+                            let convert_instr = self.try_convert_type(&a.ty, e);
+                            CodeGenInfo{
+                                instr:a.instr + convert_instr,
+                                ty: e.clone()
+                            }
+                        })
+                        .collect::<Vec<CodeGenInfo>>();
+                    Some(args)
+                }else{
+                    None
+                };
+
+                let before_instr = if let Some(instr) = args {
+                    instr.into_iter().fold(Instructions::new(), |a, b| a + b.instr)
+                } else {
+                    Vec::new().into()
+                };
+
+                CodeGenInfo {
+                    instr: before_instr + vec![Instr::Call(function_info.signature())].into(),
+                    ty: function_info.ret.clone().unwrap_or(TypeInfo::Unit),
                 }
             }
             _ => todo!()

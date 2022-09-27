@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::{env, fs};
 use std::path::PathBuf;
-use crate::frontend::ast::{FunctionHeader, ProgramSrcModule, ProgramSrcElement, ProgramSrcFnElement};
+use crate::frontend::ast::{ProgramSrcModule, ProgramSrcElement};
 use crate::frontend::codegen::CodeGen;
 use crate::frontend::lexer::Lexer;
 use crate::frontend::parser::Parser;
@@ -39,13 +39,13 @@ impl AutoScriptLoader {
         while !self.file_queue.is_empty() {
             let file = self.file_queue.pop().unwrap();
             if !self.loaded_file.contains(&file) {
-                self.add_file(file)?;
+                self.add_file(&file)?;
             }
         }
         Ok(())
     }
 
-    pub fn add_file(&mut self, path: PathBuf) -> Result<(), ()> {
+    pub fn add_file(&mut self, path: &PathBuf) -> Result<(), ()> {
         let file = path.canonicalize().unwrap();
         let name = &file.file_stem().unwrap();
 

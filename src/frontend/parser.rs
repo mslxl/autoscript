@@ -1,12 +1,12 @@
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{map, map_res, opt, verify};
+use nom::combinator::{map, opt, verify};
 use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use crate::frontend::ast::{Block, ExprNode, FunctionHeader, Op, ProgramSrcElement, ProgramSrcFnElement, StmtNode, TypeRef, UnaryOp};
+use crate::frontend::ast::{Block, ExprNode, FunctionHeader, Op, ProgramSrcElement, ProgramSrcFnElement, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
@@ -81,7 +81,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        alt((parse_num, parse_ident_expr))(input)
+        alt((parse_num, parse_fn_call ,parse_ident_expr))(input)
     }
 }
 
@@ -160,6 +160,18 @@ fn parse_equality(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     }
 }
 
+fn parse_comma_expr(input: Tokens) -> IResult<Tokens, Vec<Box<ExprNode>>> {
+    let (i1, (expr, mut exprs)) = pair(parse_expr, many0(preceded(comma_tag, parse_expr)))(input)?;
+    exprs.insert(0, expr);
+    Ok((i1, exprs))
+}
+
+fn parse_fn_call(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, (fn_name, _, args, _)) = tuple((parse_ident, lparen_tag, opt(parse_comma_expr), rparen_tag))(input)?;
+    let expr = Box::new(ExprNode::FnCall(fn_name, args));
+    Ok((i1, expr))
+}
+
 fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     parse_equality(input)
 }
@@ -179,7 +191,7 @@ fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
         parse_expr,
         opt(semicolon_tag)))(input)?;
     let is_const = kwd.tok.first().unwrap() == &Tok::KwdVal;
-    let stmt = StmtNode::VarStmt(id, ty.map(TypeRef), is_const, expr);
+    let stmt = StmtNode::VarStmt(id, ty.map(TypeInfo::from), is_const, expr);
     Ok((i1, stmt))
 }
 
@@ -200,9 +212,9 @@ fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {
     delimited(lbrace_tag, many0(parse_stmt), rbrace_tag)(input)
 }
 
-fn parse_func_params(input: Tokens) -> IResult<Tokens, Vec<(String, TypeRef)>> {
-    fn parse_func_param_item(input: Tokens) -> IResult<Tokens, (String, TypeRef)> {
-        map(tuple((parse_ident, colon_tag, parse_ident)), |item| (item.0, TypeRef(item.2)))(input)
+fn parse_func_params(input: Tokens) -> IResult<Tokens, Vec<(String, TypeInfo)>> {
+    fn parse_func_param_item(input: Tokens) -> IResult<Tokens, (String, TypeInfo)> {
+        map(tuple((parse_ident, colon_tag, parse_ident)), |item| (item.0, TypeInfo::from(item.2.as_str())))(input)
     }
     let (i1, (param, mut params)) = pair(parse_func_param_item, many0(preceded(comma_tag, parse_func_param_item)))(input)?;
     params.insert(0, param);
@@ -219,13 +231,13 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
         opt(pair(rarrow_tag, parse_ident)),
         parse_block_stmt))(input)?;
     let func = ProgramSrcElement::Function(ProgramSrcFnElement {
-        header: FunctionHeader{
+        header: FunctionHeader {
             name: id,
             param: params,
             modules: None,
             ret: match ret_value {
                 None => None,
-                Some((_, id)) => Some(TypeRef(id)),
+                Some((_, id)) => Some(TypeInfo::from(id.as_str())),
             },
         },
         block,
