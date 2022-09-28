@@ -240,7 +240,7 @@ fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
 
     }
 
-    let (i1, (_, cond, code, els)) = tuple((if_kwd_tag, parse_expr, parse_block_stmt, opt(parse_elif)))(input)?;
+    let (i1, (_, cond, code, els)) = tuple((if_kwd_tag, parse_expr, parse_block_stmt, opt(alt((parse_elif, parse_else)))))(input)?;
     let expr = Box::new(ExprNode::IfExpr(cond, Box::new(ExprNode::BlockExpr(code)), els));
     Ok((i1, expr))
 }

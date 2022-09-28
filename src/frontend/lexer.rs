@@ -146,19 +146,3 @@ impl Lexer{
         tok
     }
 }
-
-mod tests{
-    use super::*;
-
-    #[test]
-    fn test_lexer() {
-        println!("{:?}", Lexer::lex_tokens("1 + 3.14 * 4132 ".as_bytes()))
-    }
-    #[test]
-    fn test_function() {
-        let input = "fn plus(){1+1}".as_bytes();
-        println!("{:?}", Lexer::lex_tokens(input))
-    }
-}
-
-

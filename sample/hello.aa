@@ -1,9 +1,9 @@
 fn main(){
-    val id = 20;
+    val id = valid(30,4);
 
-    if id > 30 {
+    if id {
         val a = 3.14;
-    } elif id < 30 {
+    } elif false {
         val a = 4.15;
     } else {
         val a = 3.14156;
@@ -11,6 +11,10 @@ fn main(){
     return;
 }
 
-fn valid(a:int, b:int) -> int{
-   return a + b > 30;
+fn valid(a:int, b:int) -> bool{
+     if a > b {
+          return false;
+     } else {
+          return true;
+     }
 }

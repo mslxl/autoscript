@@ -22,8 +22,6 @@ impl AutoScriptInstrReader for InstrReader{
         self.pc += pc;
     }
 
-
-
     fn pc(&self) -> usize {
         self.pc
     }
