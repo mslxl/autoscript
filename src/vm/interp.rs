@@ -1,24 +1,22 @@
 use std::collections::HashMap;
+use std::ops::Add;
 use std::rc::Rc;
 use std::sync::Arc;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
 
-pub type AutoScriptModuleMan = HashMap<String, AutoScriptModule>;
 
 pub type FnSignature = String;
 #[derive(Debug)]
-pub struct AutoScriptModule {
+pub struct AutoScriptPrototype {
     // temporary implementations
-    name: String,
     functions: HashMap<FnSignature, Rc<FunctionPrototype>>,
 }
 
-impl AutoScriptModule {
-    pub fn new(name: String) -> Self {
+impl AutoScriptPrototype {
+    pub fn new() -> Self {
         Self {
-            name,
             functions: HashMap::new(),
         }
     }
@@ -42,16 +40,16 @@ pub struct FunctionPrototype {
 
 #[derive(Debug)]
 pub struct AutoScriptVM {
-    pub module_man: AutoScriptModuleMan,
+    pub prototypes: AutoScriptPrototype,
     main_thread: Thread,
     pub mem: Arc<Mem>,
 }
 
 impl AutoScriptVM {
-    pub fn new(modules: AutoScriptModuleMan) -> Self {
+    pub fn new(prototypes: AutoScriptPrototype) -> Self {
         let mut interp = unsafe {
             Self {
-                module_man: modules,
+                prototypes,
                 main_thread: Thread::new_dangle(),
                 mem: Arc::new(Mem::new()),
             }
@@ -61,8 +59,8 @@ impl AutoScriptVM {
         interp
     }
 
-    pub fn start(&mut self, start_module: &str) {
-        self.main_thread.start(start_module, "V@main(V")
+    pub fn start(&mut self, function_signature: &str) {
+        self.main_thread.start(function_signature)
     }
 
     fn new_thread(&mut self) -> Thread {

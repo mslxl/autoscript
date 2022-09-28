@@ -12,7 +12,7 @@ pub enum StmtNode {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionHeader{
     pub name:String,
-    pub modules: Option<String>,
+    pub module: Option<String>,
     pub param: Option<Vec<(String,TypeInfo)>>,
     pub ret:Option<TypeInfo>
 }
@@ -54,6 +54,7 @@ impl FunctionHeader{
         let ret = self.ret.as_ref().map(|x| x.to_string()).unwrap_or(String::from("V"));
 
         let name = self.name.clone();
+        let module_name = self.module.as_deref().unwrap_or("");
         let param:String = match self.param {
             Some(ref params) => {
                 if params.len() > 1 {
@@ -69,7 +70,7 @@ impl FunctionHeader{
             },
             None => String::from("V")
         };
-        format!("{}@{}({}", ret, name, param)
+        format!("{}@{}.{}({}", ret,module_name, name, param)
     }
 }
 
@@ -117,6 +118,18 @@ impl FunctionCompare for ProgramSrcFnElement{
 pub enum ProgramSrcElement {
     Import(String),
     Function(ProgramSrcFnElement)
+}
+
+impl ProgramSrcElement {
+    pub fn modify_to_module(self, module_name:String) -> Self{
+        match self{
+            ProgramSrcElement::Import(_) => self,
+            ProgramSrcElement::Function(mut e) => {
+                e.header.module = Some(module_name);
+                ProgramSrcElement::Function(e)
+            }
+        }
+    }
 }
 
 

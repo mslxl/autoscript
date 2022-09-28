@@ -47,13 +47,13 @@ impl AutoScriptLoader {
 
     pub fn add_file(&mut self, path: &PathBuf) -> Result<(), ()> {
         let file = path.canonicalize().unwrap();
-        let name = &file.file_stem().unwrap();
+        let name = file.file_stem().unwrap().to_str().unwrap();
 
         let code = fs::read_to_string(&file).unwrap();
         self.loaded_file.insert(file.clone());
 
         let token = Lexer::lex_tokens(code.as_bytes());
-        let programs = Parser::parse(Tokens::new(&token))
+        let programs = Parser::parse(Tokens::new(&token), name)
             .into_iter()
             .filter(|e| {
                 match &e {
@@ -65,7 +65,7 @@ impl AutoScriptLoader {
                 }
             }).collect();
 
-        self.modules.insert(name.to_str().unwrap().to_owned(), programs);
+        self.modules.insert(name.to_string(), programs);
 
         Ok(())
     }

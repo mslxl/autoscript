@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use crate::frontend::ast::{ExprNode, FunctionHeader, Op, ProgramSrcFnElement, ProgramSrcModule, StmtNode, TypeInfo, UnaryOp};
 use crate::vm::instr::{Instr, Instructions};
-use crate::vm::interp::{AutoScriptModule, AutoScriptModuleMan, FunctionPrototype};
+use crate::vm::interp::{AutoScriptPrototype, FunctionPrototype};
 
 pub struct CodeGen {
     env: Env,
@@ -189,25 +189,23 @@ impl CodeGen {
     }
 
 
-    fn translate_module(&mut self, name: &str) -> AutoScriptModule {
+    fn translate_module(&mut self, name: &str, output: &mut AutoScriptPrototype) -> Result<(), ()>{
         let src_module = self.modules.get(name).unwrap().clone();
-        let mut module = AutoScriptModule::new(name.to_string());
         for element in src_module.function {
             for func in element.1 {
                 let prototype = self.translate_function(&func, name);
-                module.insert_function_prototype(prototype.signature.clone(), prototype);
+                output.insert_function_prototype(prototype.signature.clone(), prototype);
             }
         }
-        module
+        Ok(())
     }
 
-    pub fn translate_modules(&mut self) -> AutoScriptModuleMan {
-        let keys: Vec<String> = self.modules.keys().map(|name| name.clone()).collect();
-
-        HashMap::from_iter(keys.into_iter().map(|name| {
-            let module = self.translate_module(name.as_str());
-            (name, module)
-        }))
+    pub fn translate_modules(&mut self) -> AutoScriptPrototype {
+        let mut prototype = AutoScriptPrototype::new();
+        for name in self.modules.keys().map(|x| x.clone()).collect::<Vec<String>>() {
+            self.translate_module(name.as_str(), &mut prototype).unwrap();
+        }
+        prototype
     }
 
 

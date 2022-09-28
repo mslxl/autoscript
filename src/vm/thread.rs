@@ -84,10 +84,9 @@ impl Thread {
     }
 
 
-    pub fn start(&mut self, module_name: &str, function_signature: &str) {
+    pub fn start(&mut self,function_signature: &str) {
         let vm: &mut AutoScriptVM = unsafe { &mut *self.vm };
-        let module = vm.module_man.get(module_name).unwrap();
-        let function = module.get_function_prototype(function_signature).unwrap();
+        let function = vm.prototypes.get_function_prototype(function_signature).unwrap();
         self.push_new_frame(function.local_var_size, Rc::clone(&function));
         self.loop_interpret();
     }

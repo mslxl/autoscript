@@ -304,7 +304,7 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
         header: FunctionHeader {
             name: id,
             param: params,
-            modules: None,
+            module: None,
             ret: match ret_value {
                 None => None,
                 Some((_, id)) => Some(TypeInfo::from(id.as_str())),
@@ -327,53 +327,11 @@ fn parse_program(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens) -> Vec<ProgramSrcElement> {
+    pub fn parse(tokens: Tokens, module_name:&str) -> Vec<ProgramSrcElement> {
         let (i1, program) = many0(parse_program)(tokens).unwrap();
         assert!(i1.tok.is_empty());
-        program
+        program.into_iter()
+            .map(|e| e.modify_to_module(module_name.to_string()))
+            .collect()
     }
 }
-
-mod tests {
-    use std::ops::Not;
-    use super::*;
-    use crate::frontend::lexer::Lexer;
-
-    fn assert_expr(input: &str, expr_expect: ExprNode) {
-        let input = input.as_bytes();
-        let tok = Lexer::lex_tokens(input);
-        let tokens = Tokens::new(&tok);
-        let (remain, expr) = parse_expr(tokens).unwrap();
-
-        if remain.tok.is_empty().not() {
-            println!("{:?}", remain);
-            assert_eq!(remain.tok.len(), 0);
-        }
-        assert_eq!(expr, Box::new(expr_expect))
-    }
-
-    #[test]
-    fn test_basic_add() {
-        assert_expr("1+1",
-                    ExprNode::Op(
-                        Box::new(ExprNode::Integer(1)),
-                        Op::Add,
-                        Box::new(ExprNode::Integer(1)),
-                    ));
-    }
-
-    #[test]
-    fn test_function() {
-        let input =
-            "fn test() -> i32{\
-                 val pi = 3.14159265;\
-                 return 11 - 4.5;\
-             }";
-        let token = Lexer::lex_tokens(input.as_bytes());
-        let token = Tokens::new(&token);
-        let program = Parser::parse(token);
-        println!("{:#?}", program);
-    }
-}
-
-

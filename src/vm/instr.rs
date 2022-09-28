@@ -151,7 +151,7 @@ impl Instr {
                     let thread = frame.thread.as_mut().unwrap();
                     let vm = thread.vm.as_ref().unwrap();
                     //TODO
-                    let fn_prototype = vm.module_man.get("hello").unwrap().get_function_prototype(fn_signature).unwrap();
+                    let fn_prototype = vm.prototypes.get_function_prototype(fn_signature).unwrap();
                     let new_frame = thread.push_new_frame(fn_prototype.local_var_size, Rc::clone(&fn_prototype));
                     for i in 0..fn_prototype.arg_num {
                         let idx = fn_prototype.arg_num - i - 1;
