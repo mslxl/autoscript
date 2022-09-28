@@ -4,8 +4,9 @@ use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use crate::frontend::codegen::CodeGen;
+
 use crate::frontend::loader::AutoScriptLoader;
-use crate::vm::interp::AutoScriptVM;
+use crate::vm::vm::AutoScriptVM;
 
 mod vm;
 mod frontend;

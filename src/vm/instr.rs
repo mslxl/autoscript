@@ -1,5 +1,4 @@
-use std::cmp::Ordering;
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{Display, Formatter};
 use std::ops;
 use std::rc::Rc;
 use crate::vm::slot::Slot;

@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{map, map_res, opt, verify};
+use nom::combinator::{map, opt, verify};
 use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;

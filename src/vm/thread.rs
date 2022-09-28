@@ -1,7 +1,7 @@
 use std::ptr::null_mut;
 use std::rc::Rc;
-use crate::vm::bytecode_reader::{AutoScriptInstrReader, InstrReader};
-use crate::vm::interp::{AutoScriptVM, FunctionPrototype};
+use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
+use crate::vm::vm::{AutoScriptVM, FunctionPrototype};
 use crate::vm::slot::Slot;
 
 
