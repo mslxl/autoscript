@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::HashMap;
 use std::rc::Rc;
 use nom::Parser;
@@ -43,12 +44,14 @@ impl Default for EnvScope {
 
 struct Env {
     stack: Vec<EnvScope>,
+    max_val_table_size: usize,
 }
 
 impl Default for Env {
     fn default() -> Self {
         let mut env = Self {
-            stack: Vec::new()
+            stack: Vec::new(),
+            max_val_table_size: 0,
         };
         env.push_scope();
         env
@@ -61,6 +64,9 @@ impl Env {
     }
     pub fn pop_scope(&mut self) {
         self.stack.pop();
+        if self.stack.is_empty() {
+            self.max_val_table_size = 0;
+        }
     }
     fn top_mut(&mut self) -> &mut EnvScope {
         self.stack.last_mut().unwrap()
@@ -70,6 +76,7 @@ impl Env {
     }
     pub fn val_insert(&mut self, name: String, ty: VarInfo) {
         self.top_mut().val_table.insert(name, ty);
+        self.current_val_size();
     }
     pub fn val_lookup(&mut self, name: &str) -> Option<&VarInfo> {
         for scope in self.stack.iter().rev() {
@@ -79,8 +86,10 @@ impl Env {
         }
         None
     }
-    pub fn current_val_size(&self) -> usize {
-        self.top().val_table.len()
+    pub fn current_val_size(&mut self) -> usize {
+        let len =  self.stack.iter().map(|x|x.val_table.len()).reduce(|a,b| a+b).unwrap_or(0);
+        self.max_val_table_size = max(self.max_val_table_size, len);
+        len
     }
 }
 
@@ -116,7 +125,7 @@ impl CodeGen {
             .map(|stmt| self.translate_stmt(stmt, cur_module))
             .reduce(|l, r| l + r)
             .unwrap();
-        let table_size = self.env.current_val_size();
+        let table_size = self.env.max_val_table_size;
         self.env.pop_scope();
         FunctionPrototype {
             name: program.header.name.clone(),
@@ -412,14 +421,19 @@ impl CodeGen {
             }
             ExprNode::IfExpr(cond, block, else_branch) => {
                 let cond_gen = self.translate_expr(cond, cur_module);
-                assert!(cond_gen.ty == TypeInfo::Bool);
+                assert_eq!(cond_gen.ty, TypeInfo::Bool);
+                self.env.push_scope();
                 let block_code = self.translate_expr(block, cur_module);
+                self.env.pop_scope();
+                self.env.push_scope();
                 let else_code = else_branch.as_ref()
                     .map(|e| self.translate_expr(e, cur_module))
                     .unwrap_or(CodeGenInfo {
                         instr: vec![].into(),
                         ty: TypeInfo::Unit,
                     });
+                self.env.pop_scope();
+
                 let instr = cond_gen.instr
                     + vec![Instr::JumpIf(else_code.instr.len() + 1)].into()
                     + else_code.instr

@@ -4,9 +4,9 @@ fn main(){
     if id > 30 {
         val a = 3.14;
     } elif id < 30 {
-        val b = 4.15;
+        val a = 4.15;
     } else {
-        val c = 3.14156;
+        val a = 3.14156;
     }
     return;
 }
