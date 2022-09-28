@@ -122,7 +122,7 @@ pub struct LocalVars(Vec<Slot>);
 
 impl LocalVars {
     fn with_cap(size: usize) -> Self {
-        Self(vec![Slot::Null; size])
+        Self(vec![Slot::Unit; size])
     }
 
     pub fn set(&mut self, index: usize, slot: Slot) {

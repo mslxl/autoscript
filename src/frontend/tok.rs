@@ -24,6 +24,9 @@ pub enum Tok {
     KwdVar,
     KwdVal,
     KwdImport,
+    KwdIf,
+    KwdElse,
+    KwdElif,
 
 
     // operator

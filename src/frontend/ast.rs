@@ -79,7 +79,7 @@ impl ToString for FunctionHeader{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProgramSrcModule {
     pub function: HashMap<String, Vec<ProgramSrcFnElement>>
 }
@@ -129,6 +129,8 @@ pub enum ExprNode {
     Op(Box<ExprNode>, Op, Box<ExprNode>),
     FnCall(String ,Option<Vec<Box<ExprNode>>>),
     UnaryOp(UnaryOp, Box<ExprNode>),
+    BlockExpr(Block), //last stmt is return value
+    IfExpr(Box<ExprNode>, Box<ExprNode>, Option<Box<ExprNode>>),
 }
 
 #[derive(Debug, PartialEq, Clone)]

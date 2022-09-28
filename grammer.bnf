@@ -20,9 +20,15 @@ mul'   ::= "" | '*' mul' | '/' mul'
  */
 
 unary  ::= '-' unary | '+' unary | primary
-primary::= (expr) | num | identifity | function_call
+primary::= (expr) | num | identifity | function_call | if_expr
 function_call ::= identifity "("  ")"
 num    ::= integer | float
 
+if_expr ::= "if" expr block elif_branch? else_branch?
+elif_branch ::= "elif" expr block
+else_branch ::= "else" expr block
 
-function_def ::= "fn" identifity "(" ")" ("->" identifity)? "{" (expr ';'?)* "\n" "}"
+function_def ::= "fn" identifity "(" ")" ("->" identifity)? block
+
+
+block ::= "{" (expr ';'?)* "\n" "}"

@@ -4,7 +4,7 @@ use num_cmp::NumCmp;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Slot{
-    Null,
+    Unit,
     Int(i64),
     Float(f64),
     Char(char),
@@ -12,22 +12,12 @@ pub enum Slot{
     Ref
 }
 
-
-// impl Debug for Slot{
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Slot::Null => write!(f, "null"),
-//             _ => write!(f, "{:?}", self),
-//         }
-//     }
-// }
-
 impl Slot{
     #[inline]
     pub fn set_int(&mut self, val: i64){
         match self{
             Slot::Int(v) => *v = val,
-            Slot::Null =>{
+            Slot::Unit =>{
                 *self = Slot::Int(val)
             }
             _ => panic!()
@@ -47,7 +37,7 @@ impl Slot{
     pub fn set_float(&mut self, val: f64){
         match self{
             Slot::Float(v) => *v = val,
-            Slot::Null => {
+            Slot::Unit => {
                 *self = Slot::Float(val)
             }
             _ => panic!()
@@ -67,7 +57,7 @@ impl Slot{
     pub fn set_bool(&mut self, val: bool){
         match self{
             Slot::Bool(v) => *v = val,
-            Slot::Null => {
+            Slot::Unit => {
                 *self = Slot::Bool(val)
             }
             _ => panic!()

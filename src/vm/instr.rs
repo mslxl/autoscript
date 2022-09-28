@@ -29,6 +29,7 @@ pub enum Instr {
     BPush(bool),
     BAnd,
     BOr,
+    BNeg,
 
     CmpEq,
     CmpNe,
@@ -36,6 +37,11 @@ pub enum Instr {
     CmpLt,
     CmpGe,
     CmpGt,
+
+    JumpIf(usize),
+    Jump(usize),
+
+    NPush,
 
     Store(usize),
     Load(usize),
@@ -128,6 +134,10 @@ impl Instr {
                 let v1 = frame.operand_stack.pop().unwrap().get_float();
                 frame.operand_stack.push(Slot::Float(v1 % v2));
             }
+            Instr::BNeg => {
+                let v = frame.operand_stack.pop().unwrap().get_bool();
+                frame.operand_stack.push(Slot::Bool(!v));
+            }
             Instr::Store(idx) => {
                 let slot = frame.operand_stack.pop().unwrap();
                 frame.local_vars.set(*idx, slot)
@@ -219,6 +229,21 @@ impl Instr {
                 let result = v1 != v2;
                 frame.operand_stack.push(Slot::Bool(result));
             }
+            Instr::Jump(offset) => {
+                frame.next_pc += offset
+            }
+            Instr::JumpIf(offset) => {
+                let cond = frame.operand_stack.pop().unwrap().get_bool();
+                if cond{
+                    frame.next_pc += offset
+                }
+            }
+            Instr::Pop => {
+                frame.operand_stack.pop().unwrap();
+            }
+            Instr::NPush => {
+                frame.operand_stack.push(Slot::Unit);
+            }
             Instr::Nop => {}
             _ => todo!("{}", self)
         }
@@ -288,6 +313,7 @@ impl Display for Instr {
             Instr::BPush(b) => write!(f, "bpush {}", b),
             Instr::BAnd => write!(f, "band"),
             Instr::BOr => write!(f, "bor"),
+            Instr::BNeg => write!(f, "bneg"),
             Instr::CmpEq => write!(f, "cmp_eq"),
             Instr::CmpNe => write!(f, "cmp_ne"),
             Instr::CmpGt => write!(f, "cmp_gt"),
@@ -296,10 +322,13 @@ impl Display for Instr {
             Instr::CmpLe => write!(f, "cmp_le"),
             Instr::ReturnValue => write!(f, "retv"),
             Instr::Return => write!(f, "ret"),
+            Instr::Jump(offset) => write!(f, "jump {}", offset),
+            Instr::JumpIf(offset) => write!(f, "jump_if {}", offset),
             Instr::Nop => write!(f, "nop"),
             Instr::Store(idx) => write!(f, "store {}", idx),
             Instr::Load(idx) => write!(f, "load {}", idx),
             Instr::Pop => write!(f, "pop"),
+            Instr::NPush => write!(f, "npush"),
         }
     }
 }

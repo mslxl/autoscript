@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{map, opt, verify};
+use nom::combinator::{map, map_res, opt, verify};
 use nom::Err;
 use nom::error::{Error, ErrorKind};
 use nom::IResult;
@@ -39,6 +39,7 @@ tag_token!(semicolon_tag, Tok::Semicolon);
 tag_token!(colon_tag, Tok::Colon);
 tag_token!(rarrow_tag, Tok::RightArrow);
 tag_token!(comma_tag, Tok::Comma);
+tag_token!(not_tag, Tok::Not);
 
 tag_token!(fn_kwd_tag, Tok::KwdFn);
 tag_token!(ret_kwd_tag, Tok::KwdRet);
@@ -46,7 +47,12 @@ tag_token!(ret_kwd_tag, Tok::KwdRet);
 tag_token!(var_kwd_tag, Tok::KwdVal);
 tag_token!(val_kwd_tag, Tok::KwdVar);
 
+tag_token!(if_kwd_tag, Tok::KwdIf);
+tag_token!(elif_kwd_tag, Tok::KwdElif);
+tag_token!(else_kwd_tag, Tok::KwdElse);
+
 tag_token!(import_kwd_tag, Tok::KwdImport);
+
 
 fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     let (i1, t1) = take(1usize)(input)?;
@@ -95,18 +101,19 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        alt((parse_num, parse_fn_call, parse_ident_expr, parse_bool))(input)
+        alt((parse_num, parse_fn_call, parse_ident_expr, parse_bool, parse_if_expr))(input)
     }
 }
 
 
 fn parse_unary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    let fst_match = pair(alt((plus_tag, minus_tag)), parse_unary)(input);
+    let fst_match = pair(alt((plus_tag, minus_tag, not_tag)), parse_unary)(input);
     if fst_match.is_ok() {
         let (i1, (tokens, expr)) = fst_match.unwrap();
         let op = match tokens.tok.first().unwrap() {
             Tok::Plus => UnaryOp::Plus,
             Tok::Minus => UnaryOp::Minus,
+            Tok::Not => UnaryOp::Not,
             _ => unreachable!()
         };
         Ok((i1, Box::new(ExprNode::UnaryOp(op, expr))))
@@ -203,6 +210,41 @@ fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     parse_logic(input)
 }
 
+fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    fn parse_else(input:Tokens) -> IResult<Tokens, Box<ExprNode>>{
+        preceded(
+            else_kwd_tag,
+            map(
+                parse_block_stmt,
+                |x| Box::new(ExprNode::BlockExpr(x))))(input)
+    }
+    fn parse_elif(input:Tokens) -> IResult<Tokens, Box<ExprNode>>{
+        let (i1, (_, cond, code)) = tuple(
+            (elif_kwd_tag,
+             parse_expr,
+             parse_block_stmt))(input)?;
+        let ret = opt(alt((parse_elif, parse_else)))(i1);
+        if let Ok((tok, els)) = ret {
+            Ok((tok,Box::new(
+                ExprNode::IfExpr(
+                    cond,
+                    Box::new(ExprNode::BlockExpr(code)),
+                    els))))
+        }else{
+            Ok((i1,Box::new(
+                ExprNode::IfExpr(
+                    cond,
+                    Box::new(ExprNode::BlockExpr(code)),
+                    None))))
+        }
+
+    }
+
+    let (i1, (_, cond, code, els)) = tuple((if_kwd_tag, parse_expr, parse_block_stmt, opt(parse_elif)))(input)?;
+    let expr = Box::new(ExprNode::IfExpr(cond, Box::new(ExprNode::BlockExpr(code)), els));
+    Ok((i1, expr))
+}
+
 fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     map(terminated(parse_expr, opt(semicolon_tag)), |expr| {
         StmtNode::ExprStmt(expr)
@@ -221,6 +263,7 @@ fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     let stmt = StmtNode::VarStmt(id, ty.map(TypeInfo::from), is_const, expr);
     Ok((i1, stmt))
 }
+
 
 fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     map(delimited(ret_kwd_tag, opt(parse_expr), opt(semicolon_tag)), |expr| {

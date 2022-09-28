@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use nom::Parser;
 use crate::frontend::ast::{ExprNode, Op, ProgramSrcElement, ProgramSrcFnElement, ProgramSrcModule, StmtNode, TypeInfo, UnaryOp};
 use crate::vm::instr::{Instr, Instructions};
 use crate::vm::interp::{AutoScriptModule, AutoScriptModuleMan, FunctionPrototype};
@@ -194,9 +195,9 @@ impl CodeGen {
                 instr: vec![Instr::FPush(*float)].into(),
                 ty: TypeInfo::Float,
             },
-            ExprNode::Bool(boolean) => CodeGenInfo{
+            ExprNode::Bool(boolean) => CodeGenInfo {
                 instr: vec![Instr::BPush(*boolean)].into(),
-                ty:TypeInfo::Bool,
+                ty: TypeInfo::Bool,
             },
             ExprNode::Op(left, op, right) => {
                 let mut left_expr = self.translate_expr(left, cur_module);
@@ -223,29 +224,29 @@ impl CodeGen {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::IRem].into(),
                             ty: TypeInfo::Int,
                         },
-                        Op::Ge => CodeGenInfo{
+                        Op::Ge => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Ge => CodeGenInfo{
+                        Op::Ge => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Gt => CodeGenInfo{
+                        Op::Gt => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGt].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Eq => CodeGenInfo{
+                        Op::Eq => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpEq].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Lt => CodeGenInfo{
+                        Op::Lt => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLt].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Le => CodeGenInfo{
+                        Op::Le => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
                         _ => panic!()
                     }
@@ -275,55 +276,60 @@ impl CodeGen {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::FRem].into(),
                             ty: TypeInfo::Float,
                         },
-                        Op::Ge => CodeGenInfo{
+                        Op::Ge => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Ge => CodeGenInfo{
+                        Op::Ge => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Gt => CodeGenInfo{
+                        Op::Gt => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpGt].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Eq => CodeGenInfo{
+                        Op::Eq => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpEq].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Lt => CodeGenInfo{
+                        Op::Lt => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLt].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
-                        Op::Le => CodeGenInfo{
+                        Op::Le => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::CmpLe].into(),
-                            ty: TypeInfo::Bool
+                            ty: TypeInfo::Bool,
                         },
                         _ => panic!()
                     }
                 } else if left_expr.ty == TypeInfo::Bool && right_expr.ty == TypeInfo::Bool {
                     match op {
-                        Op::And => CodeGenInfo{
+                        Op::And => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::BAnd].into(),
-                            ty: TypeInfo::Bool
-                        } ,
-                        Op::Or => CodeGenInfo{
+                            ty: TypeInfo::Bool,
+                        },
+                        Op::Or => CodeGenInfo {
                             instr: left_expr.instr + right_expr.instr + vec![Instr::BOr].into(),
-                            ty: TypeInfo::Bool
-                        } ,
-                        _ =>  panic!()
+                            ty: TypeInfo::Bool,
+                        },
+                        _ => panic!()
                     }
-                }else{
+                } else {
                     todo!()
                 }
             }
             ExprNode::UnaryOp(op, expr) => {
                 let sub_expr = self.translate_expr(expr, cur_module);
                 match op {
-                    UnaryOp::Plus => CodeGenInfo {
-                        instr: vec![].into(),
-                        ty: sub_expr.ty,
-                    },
+                    UnaryOp::Plus => {
+                        match sub_expr.ty {
+                            TypeInfo::Int | TypeInfo::Float => CodeGenInfo {
+                                instr: vec![].into(),
+                                ty: sub_expr.ty,
+                            },
+                            _ => panic!()
+                        }
+                    }
                     UnaryOp::Minus => {
                         match sub_expr.ty {
                             TypeInfo::Int => CodeGenInfo {
@@ -333,6 +339,15 @@ impl CodeGen {
                             TypeInfo::Float => CodeGenInfo {
                                 instr: sub_expr.instr + vec![Instr::FNeg].into(),
                                 ty: TypeInfo::Float,
+                            },
+                            _ => panic!()
+                        }
+                    }
+                    UnaryOp::Not => {
+                        match sub_expr.ty {
+                            TypeInfo::Bool => CodeGenInfo {
+                                instr: sub_expr.instr + vec![Instr::BNeg].into(),
+                                ty: TypeInfo::Bool,
                             },
                             _ => panic!()
                         }
@@ -371,16 +386,16 @@ impl CodeGen {
                         .collect::<Vec<&TypeInfo>>();
                     let args = param.into_iter()
                         .zip(require_types)
-                        .map(|(a,e)| {
+                        .map(|(a, e)| {
                             let convert_instr = self.try_convert_type(&a.ty, e);
-                            CodeGenInfo{
-                                instr:a.instr + convert_instr,
-                                ty: e.clone()
+                            CodeGenInfo {
+                                instr: a.instr + convert_instr,
+                                ty: e.clone(),
                             }
                         })
                         .collect::<Vec<CodeGenInfo>>();
                     Some(args)
-                }else{
+                } else {
                     None
                 };
 
@@ -393,6 +408,70 @@ impl CodeGen {
                 CodeGenInfo {
                     instr: before_instr + vec![Instr::Call(function_info.signature())].into(),
                     ty: function_info.ret.clone().unwrap_or(TypeInfo::Unit),
+                }
+            }
+            ExprNode::IfExpr(cond, block, else_branch) => {
+                let cond_gen = self.translate_expr(cond, cur_module);
+                assert!(cond_gen.ty == TypeInfo::Bool);
+                let block_code = self.translate_expr(block, cur_module);
+                let else_code = else_branch.as_ref()
+                    .map(|e| self.translate_expr(e, cur_module))
+                    .unwrap_or(CodeGenInfo {
+                        instr: vec![].into(),
+                        ty: TypeInfo::Unit,
+                    });
+                let instr = cond_gen.instr
+                    + vec![Instr::JumpIf(else_code.instr.len() + 1)].into()
+                    + else_code.instr
+                    + vec![Instr::Jump(block_code.instr.len())].into()
+                    + block_code.instr;
+                let ty = if block_code.ty == else_code.ty {
+                    block_code.ty.clone()
+                } else {
+                    TypeInfo::Unit
+                };
+                if ty == TypeInfo::Unit {
+                    CodeGenInfo {
+                        instr: instr + vec![Instr::NPush].into(),
+                        ty,
+                    }
+                } else{
+                    CodeGenInfo {
+                        instr,
+                        ty,
+                    }
+                }
+
+            }
+            ExprNode::BlockExpr(block) => {
+                if block.is_empty() {
+                    CodeGenInfo {
+                        instr: vec![].into(),
+                        ty: TypeInfo::Unit,
+                    }
+                } else {
+                    let (head, last) = block.split_at(block.len() - 1);
+                    let head_instr = head.iter()
+                        .map(|x| self.translate_stmt(x, cur_module))
+                        .reduce(|a, b| a + b)
+                        .unwrap_or(Instructions::new());
+                    let last_stmt = last.last().unwrap();
+                    match last_stmt {
+                        StmtNode::ExprStmt(expr) => {
+                            let last = self.translate_expr(expr, cur_module);
+                            CodeGenInfo {
+                                instr: head_instr + last.instr,
+                                ty: last.ty,
+                            }
+                        }
+                        _ => {
+                            let last = self.translate_stmt(last_stmt, cur_module);
+                            CodeGenInfo {
+                                instr: head_instr + last,
+                                ty: TypeInfo::Unit,
+                            }
+                        }
+                    }
                 }
             }
             _ => todo!()
