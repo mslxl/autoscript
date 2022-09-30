@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use crate::frontend::codegen::CodeGen;
 
-use crate::frontend::loader::AutoScriptLoader;
+use crate::frontend::loader::ScriptFileLoader;
 use crate::vm::builtin::VMBuiltinRegister;
 use crate::vm::vm::AutoScriptVM;
 
@@ -15,7 +15,7 @@ mod frontend;
 fn main() {
     let args:Vec<OsString> = env::args_os().collect();
     assert_ne!(args.len(), 1);
-    let mut loader = AutoScriptLoader::new();
+    let mut loader = ScriptFileLoader::new();
     let file = PathBuf::from(args.get(1).unwrap());
     loader.add_file(&file).unwrap();
     let mut modules = loader.unwrap();
@@ -33,5 +33,5 @@ fn main() {
     vm.start(&main_function_name);
     let end_time = std::time::SystemTime::now();
     let cost_time = end_time.duration_since(start_time).unwrap().as_millis();
-    println!("Cost {}ms", cost_time);
+    println!("Finished in {}ms", cost_time);
 }

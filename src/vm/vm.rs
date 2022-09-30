@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::vm::builtin::builtin_func::AutoScriptVmFnCode;
+use crate::vm::builtin::FunctionRustBinding;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
@@ -12,7 +12,7 @@ pub type FnSignature = String;
 pub struct AutoScriptPrototype {
     // temporary implementations
     functions: HashMap<FnSignature, Rc<FunctionPrototype>>,
-    vm_functions: HashMap<FnSignature, Box<dyn AutoScriptVmFnCode>>
+    vm_functions: HashMap<FnSignature, Box<dyn FunctionRustBinding>>
 }
 
 impl AutoScriptPrototype {
@@ -29,10 +29,10 @@ impl AutoScriptPrototype {
         self.functions.get(signature).map(Rc::clone)
     }
 
-    pub fn insert_vm_function(&mut self, signature: FnSignature, vm_func: Box<dyn AutoScriptVmFnCode>) {
+    pub fn insert_vm_function(&mut self, signature: FnSignature, vm_func: Box<dyn FunctionRustBinding>) {
         self.vm_functions.insert(signature, vm_func);
     }
-    pub fn get_vm_function(&self, signature: &str) -> Option<&Box<dyn AutoScriptVmFnCode>> {
+    pub fn get_vm_function(&self, signature: &str) -> Option<&Box<dyn FunctionRustBinding>> {
         self.vm_functions.get(signature)
     }
 }

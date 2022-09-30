@@ -6,7 +6,8 @@ use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use crate::frontend::ast::{Block, ExprNode, FunctionHeader, FunctionOrigin, Op, ProgramSrcElement, ProgramSrcFnElement, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{Block, ExprNode, Op, ProgramRootElement, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
@@ -291,7 +292,7 @@ fn parse_func_params(input: Tokens) -> IResult<Tokens, Vec<(String, TypeInfo)>> 
     Ok((i1, params))
 }
 
-fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
+fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     let (i1, (_, id, _, params, _, ret_value, block)) = tuple((
         fn_kwd_tag,
         parse_ident,
@@ -300,7 +301,7 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
         rparen_tag,
         opt(pair(rarrow_tag, parse_ident)),
         parse_block_stmt))(input)?;
-    let func = ProgramSrcElement::Function(ProgramSrcFnElement {
+    let func = ProgramRootElement::Function(ProgramSrcFnElement {
         header: FunctionHeader {
             name: id,
             param: params,
@@ -316,19 +317,19 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
     Ok((i1, func))
 }
 
-fn parse_import(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
+fn parse_import(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     let (i1, (_, module_name, _)) = tuple((import_kwd_tag, parse_ident, opt(semicolon_tag)))(input)?;
-    Ok((i1, ProgramSrcElement::Import(module_name)))
+    Ok((i1, ProgramRootElement::Import(module_name)))
 }
 
-fn parse_program(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
+fn parse_program(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     alt((parse_func, parse_import))(input)
 }
 
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens, module_name:&str) -> Vec<ProgramSrcElement> {
+    pub fn parse(tokens: Tokens, module_name:&str) -> Vec<ProgramRootElement> {
         let (i1, program) = many0(parse_program)(tokens).unwrap();
         assert!(i1.tok.is_empty());
         program.into_iter()

@@ -152,7 +152,7 @@ impl Instr {
                     let thread = frame.thread.as_mut().unwrap();
                     let vm = thread.vm.as_ref().unwrap();
                     let func = vm.prototypes.get_vm_function(fn_signature).unwrap();
-                    let args_num = func.args().len();
+                    let args_num = func.get_args().len();
                     let mut args:Vec<Slot> = Vec::new();
                     frame.operand_stack[frame.operand_stack.len() - args_num .. frame.operand_stack.len()].clone_into(&mut args);
                     for _ in 0.. args_num {
@@ -189,11 +189,11 @@ impl Instr {
                     let thread = frame.thread.as_mut().unwrap();
                     let frame = thread.pop_frame().unwrap();
 
-                    println!("Process finish. Local variable table:");
-                    let table = frame.local_vars;
-                    for i in 0..table.len() {
-                        println!("{}\t: {:?}", i, table.get(i))
-                    }
+                    // println!("Process finish. Local variable table:");
+                    // let table = frame.local_vars;
+                    // for i in 0..table.len() {
+                    //     println!("{}\t: {:?}", i, table.get(i))
+                    // }
                 }
             }
             Instr::BPush(b) => {

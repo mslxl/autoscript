@@ -6,3 +6,4 @@ pub mod parser;
 pub mod loader;
 pub(crate) mod gen_info;
 pub mod module_man;
+pub mod func;

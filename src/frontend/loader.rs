@@ -1,20 +1,21 @@
 use std::collections::{HashMap, HashSet};
 use std::{env, fs};
 use std::path::PathBuf;
-use crate::frontend::ast::ProgramSrcElement;
+use crate::frontend::ast::ProgramRootElement;
+
 use crate::frontend::lexer::Lexer;
-use crate::frontend::module_man::ProgramSrcModule;
+use crate::frontend::module_man::ProgramModule;
 use crate::frontend::parser::Parser;
 use crate::frontend::tok::Tokens;
 
-pub struct AutoScriptLoader {
+pub struct ScriptFileLoader {
     load_path: Vec<PathBuf>,
     file_queue: Vec<PathBuf>,
     loaded_file: HashSet<PathBuf>,
-    modules: HashMap<String, Vec<ProgramSrcElement>>,
+    modules: HashMap<String, Vec<ProgramRootElement>>,
 }
 
-impl AutoScriptLoader {
+impl ScriptFileLoader {
     pub fn new() -> Self {
         Self {
             load_path: vec![env::current_dir().unwrap()],
@@ -57,7 +58,7 @@ impl AutoScriptLoader {
             .into_iter()
             .filter(|e| {
                 match &e {
-                    ProgramSrcElement::Import(module_name) => {
+                    ProgramRootElement::Import(module_name) => {
                         self.add_module(module_name).unwrap();
                         false
                     }
@@ -69,13 +70,13 @@ impl AutoScriptLoader {
 
         Ok(())
     }
-    pub fn unwrap(self) -> HashMap<String, ProgramSrcModule> {
-        let mut map: HashMap<String, ProgramSrcModule> = HashMap::new();
+    pub fn unwrap(self) -> HashMap<String, ProgramModule> {
+        let mut map: HashMap<String, ProgramModule> = HashMap::new();
         for (module_name, element_vec) in self.modules {
             let mut functions = HashMap::new();
             for element in element_vec {
                 match element {
-                    ProgramSrcElement::Function(f) => {
+                    ProgramRootElement::Function(f) => {
                         if !functions.contains_key(&f.header.name) {
                             functions.insert(f.header.name.clone(), Vec::new());
                         }
@@ -85,7 +86,7 @@ impl AutoScriptLoader {
                 }
             }
 
-            let module = ProgramSrcModule {
+            let module = ProgramModule {
                 function: functions,
                 vm_function: Default::default()
             };
