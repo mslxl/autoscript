@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::{env, fs};
 use std::path::PathBuf;
-use crate::frontend::ast::{ProgramSrcModule, ProgramSrcElement};
+use crate::frontend::ast::ProgramSrcElement;
 use crate::frontend::lexer::Lexer;
+use crate::frontend::module_man::ProgramSrcModule;
 use crate::frontend::parser::Parser;
 use crate::frontend::tok::Tokens;
 
@@ -85,7 +86,8 @@ impl AutoScriptLoader {
             }
 
             let module = ProgramSrcModule {
-                function: functions
+                function: functions,
+                vm_function: Default::default()
             };
             map.insert(module_name, module);
         }

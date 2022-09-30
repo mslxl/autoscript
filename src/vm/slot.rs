@@ -11,6 +11,18 @@ pub enum Slot{
     Bool(bool),
     Ref
 }
+impl ToString for Slot{
+    fn to_string(&self) -> String {
+        match self {
+            Slot::Unit => String::from("unit"),
+            Slot::Int(v) =>  v.to_string(),
+            Slot::Float(f) => f.to_string(),
+            Slot::Char(c) => c.to_string(),
+            Slot::Bool(b) => b.to_string(),
+            Slot::Ref => todo!()
+        }
+    }
+}
 
 impl Slot{
     #[inline]

@@ -42,10 +42,12 @@ pub enum Instr {
 
     NPush,
 
+    Call(String),
+    CallVM(String),
+
     Store(usize),
     Load(usize),
     Pop,
-    Call(String),
     Goto(i32),
     ReturnValue,
     Return,
@@ -54,9 +56,9 @@ pub enum Instr {
 
 impl Instr {
     pub fn execute(&self, frame: &mut Frame) {
-        unsafe {
-            println!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
-        }
+        // unsafe {
+        //     println!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
+        // }
 
         match self {
             Instr::IPush(value) => {
@@ -144,6 +146,21 @@ impl Instr {
             Instr::Load(idx) => {
                 let slot = frame.local_vars.get(*idx).clone();
                 frame.operand_stack.push(slot);
+            }
+            Instr::CallVM(fn_signature) => {
+                unsafe {
+                    let thread = frame.thread.as_mut().unwrap();
+                    let vm = thread.vm.as_ref().unwrap();
+                    let func = vm.prototypes.get_vm_function(fn_signature).unwrap();
+                    let args_num = func.args().len();
+                    let mut args:Vec<Slot> = Vec::new();
+                    frame.operand_stack[frame.operand_stack.len() - args_num .. frame.operand_stack.len()].clone_into(&mut args);
+                    for _ in 0.. args_num {
+                        frame.operand_stack.pop();
+                    }
+                    let return_value = func.execute(&args,frame);
+                    frame.operand_stack.push(return_value.unwrap_or(Slot::Unit))
+                }
             }
             Instr::Call(fn_signature) => {
                 unsafe {
@@ -328,6 +345,7 @@ impl Display for Instr {
             Instr::Load(idx) => write!(f, "load {}", idx),
             Instr::Pop => write!(f, "pop"),
             Instr::NPush => write!(f, "npush"),
+            Instr::CallVM(signature) => write!(f, "call_vm {}", signature)
         }
     }
 }

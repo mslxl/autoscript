@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use crate::frontend::codegen::CodeGen;
 
 use crate::frontend::loader::AutoScriptLoader;
+use crate::vm::builtin::VMBuiltinRegister;
 use crate::vm::vm::AutoScriptVM;
 
 mod vm;
@@ -17,7 +18,8 @@ fn main() {
     let mut loader = AutoScriptLoader::new();
     let file = PathBuf::from(args.get(1).unwrap());
     loader.add_file(&file).unwrap();
-    let modules = loader.unwrap();
+    let mut modules = loader.unwrap();
+    VMBuiltinRegister::register_prelude(&mut modules);
 
     let mut codegen = CodeGen::new(modules);
     let modules = codegen.translate_modules();

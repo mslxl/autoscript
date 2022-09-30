@@ -6,7 +6,7 @@ use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use crate::frontend::ast::{Block, ExprNode, FunctionHeader, Op, ProgramSrcElement, ProgramSrcFnElement, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{Block, ExprNode, FunctionHeader, FunctionOrigin, Op, ProgramSrcElement, ProgramSrcFnElement, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
@@ -309,6 +309,7 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramSrcElement> {
                 None => None,
                 Some((_, id)) => Some(TypeInfo::from(id.as_str())),
             },
+            origin: FunctionOrigin::Source
         },
         block,
     });

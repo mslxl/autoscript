@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::frontend::ast::{ExprNode, FunctionHeader, Op, ProgramSrcFnElement, ProgramSrcModule, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{ExprNode, FunctionHeader, FunctionOrigin, Op, ProgramSrcFnElement, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
+use crate::frontend::module_man::ProgramSrcModule;
 use crate::vm::instr::{Instr, Instructions};
 use crate::vm::vm::{AutoScriptPrototype, FunctionPrototype};
 
@@ -16,6 +17,15 @@ impl CodeGen {
             env: Env::default(),
             modules,
         }
+    }
+
+    fn find_function(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> Option<&FunctionHeader> {
+        for (_, module) in &self.modules {
+            if let Some(header) = module.search_function(name, param) {
+                return Some(header)
+            }
+        }
+        None
     }
 
     fn translate_function(&mut self, program: &ProgramSrcFnElement, cur_module: &str) -> FunctionPrototype {
@@ -100,6 +110,12 @@ impl CodeGen {
                 output.insert_function_prototype(prototype.signature.clone(), prototype);
             }
         }
+        for element in src_module.vm_function {
+            for func in element.1 {
+                output.insert_vm_function(func.header.signature(), func.block);
+            }
+        }
+
         Ok(())
     }
 
@@ -297,13 +313,11 @@ impl CodeGen {
                 let types = args.as_ref()
                     .map(|vec| vec.iter().map(|e| e.ty.clone())
                         .collect::<Vec<TypeInfo>>());
-                let function_info = self.modules
-                    .get(cur_module)
-                    .unwrap()
-                    .search_function(fn_name, types.as_ref())
-                    .unwrap();
+
+                let fn_header = self.find_function(fn_name, types.as_ref())
+                    .expect(&format!("Can't find function: {}", fn_name));
                 let args = if let Some(param) = args {
-                    let require_types = function_info.param
+                    let require_types = fn_header.param
                         .as_ref()
                         .unwrap()
                         .iter()
@@ -330,9 +344,15 @@ impl CodeGen {
                     Vec::new().into()
                 };
 
+                let call_instr = match &fn_header.origin {
+                    FunctionOrigin::Source => Instr::Call(fn_header.signature()),
+                    FunctionOrigin::VM => Instr::CallVM(fn_header.signature()),
+                    FunctionOrigin::FFI => todo!()
+                };
+
                 GenInfo::new(
-                    before_instr + vec![Instr::Call(function_info.signature())].into(),
-                    function_info.ret.clone().unwrap_or(TypeInfo::Unit),
+                    before_instr + vec![call_instr].into(),
+                    fn_header.ret.clone().unwrap_or(TypeInfo::Unit),
                 )
             }
             ExprNode::IfExpr(cond, block, else_branch) => {

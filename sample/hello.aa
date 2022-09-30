@@ -1,20 +1,13 @@
 fn main(){
-    val id = valid(30,4);
-
-    if id {
-        val a = 3.14;
-    } elif false {
-        val a = 4.15;
-    } else {
-        val a = 3.14156;
-    }
+    val gcd_val = gcd(12, 18);
+    print(gcd_val);
     return;
 }
 
-fn valid(a:int, b:int) -> bool{
-     if a > b {
-          return false;
-     } else {
-          return true;
-     }
+fn gcd(a: int, b: int) -> int {
+    if b == 0 {
+        return a;
+    } else {
+        return gcd(b, a % b);
+    }
 }

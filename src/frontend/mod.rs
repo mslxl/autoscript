@@ -5,3 +5,4 @@ pub mod lexer;
 pub mod parser;
 pub mod loader;
 pub(crate) mod gen_info;
+pub mod module_man;
