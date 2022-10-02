@@ -3,6 +3,8 @@ extern crate core;
 use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;
+use clap::Parser;
+
 use crate::frontend::codegen::CodeGen;
 
 use crate::frontend::loader::ScriptFileLoader;
@@ -12,11 +14,24 @@ use crate::vm::vm::AutoScriptVM;
 mod vm;
 mod frontend;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct VmArgs{
+
+    /// Script file to execute
+    pub file: String,
+
+    #[arg(short, long, default_value_t = false)]
+    /// Print instructions executed
+    pub instr: bool
+}
+
 fn main() {
-    let args:Vec<OsString> = env::args_os().collect();
-    assert_ne!(args.len(), 1);
+    let vm_args = VmArgs::parse();
+
+
     let mut loader = ScriptFileLoader::new();
-    let file = PathBuf::from(args.get(1).unwrap());
+    let file = PathBuf::from(vm_args.file.as_str());
     loader.add_file(&file).unwrap();
     let mut modules = loader.unwrap();
     VMBuiltinRegister::register_prelude(&mut modules);
@@ -25,7 +40,7 @@ fn main() {
     let modules = codegen.translate_modules();
     let main_module_name = file.file_stem().unwrap().to_str().unwrap();
 
-    let mut vm = AutoScriptVM::new(modules);
+    let mut vm = AutoScriptVM::new(modules, vm_args);
 
     let main_function_name = format!("V@{}.main(V", main_module_name);
 

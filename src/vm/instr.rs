@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::ops;
+use std::ops::{AddAssign, Not};
 use std::rc::Rc;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
@@ -37,8 +38,9 @@ pub enum Instr {
     CmpGe,
     CmpGt,
 
-    JumpIf(usize),
-    Jump(usize),
+    JumpIf(i32),
+    JumpIfN(i32),
+    Jump(i32),
 
     NPush,
 
@@ -48,7 +50,6 @@ pub enum Instr {
     Store(usize),
     Load(usize),
     Pop,
-    Goto(i32),
     ReturnValue,
     Return,
     Nop,
@@ -56,9 +57,11 @@ pub enum Instr {
 
 impl Instr {
     pub fn execute(&self, frame: &mut Frame) {
-        // unsafe {
-        //     println!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
-        // }
+        unsafe {
+            if frame.thread.as_ref().unwrap().vm.as_ref().unwrap().args.instr {
+                eprintln!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
+            }
+        }
 
         match self {
             Instr::IPush(value) => {
@@ -254,6 +257,12 @@ impl Instr {
                     frame.next_pc += offset
                 }
             }
+            Instr::JumpIfN(offset) => {
+                let cond = frame.operand_stack.pop().unwrap().get_bool();
+                if !cond {
+                    frame.next_pc += offset
+                }
+            }
             Instr::Pop => {
                 frame.operand_stack.pop().unwrap();
             }
@@ -273,8 +282,8 @@ impl Instructions {
     pub fn new() -> Self {
         Instructions(Vec::new())
     }
-    pub fn get_instr(&self, index: usize) -> Option<Instr> {
-        self.0.get(index).cloned()
+    pub fn get_instr(&self, index: i32) -> Option<Instr> {
+        self.0.get(index as usize).cloned()
     }
     pub fn len(&self) -> usize {
         self.0.len()
@@ -316,7 +325,6 @@ impl Display for Instr {
             Instr::INeg => write!(f, "ineg"),
             Instr::IRem => write!(f, "irem"),
             Instr::Call(refer) => write!(f, "call {}", refer),
-            Instr::Goto(offset) => write!(f, "goto {}", offset),
             Instr::I2F => write!(f, "i2f"),
             Instr::F2I => write!(f, "f2i"),
             Instr::FPush(value) => write!(f, "fpush {}", value),
@@ -340,6 +348,7 @@ impl Display for Instr {
             Instr::Return => write!(f, "ret"),
             Instr::Jump(offset) => write!(f, "jump {}", offset),
             Instr::JumpIf(offset) => write!(f, "jump_if {}", offset),
+            Instr::JumpIfN(offset) => write!(f, "jump_ifn {}", offset),
             Instr::Nop => write!(f, "nop"),
             Instr::Store(idx) => write!(f, "store {}", idx),
             Instr::Load(idx) => write!(f, "load {}", idx),

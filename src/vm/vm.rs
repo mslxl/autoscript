@@ -5,6 +5,7 @@ use crate::vm::builtin::FunctionRustBinding;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
+use crate::VmArgs;
 
 
 pub type FnSignature = String;
@@ -47,20 +48,21 @@ pub struct FunctionPrototype {
     pub code: Rc<Instructions>,
 }
 
-#[derive(Debug)]
 pub struct AutoScriptVM {
     pub prototypes: AutoScriptPrototype,
-    main_thread: Thread,
+    pub main_thread: Thread,
     pub mem: Arc<Mem>,
+    pub args: VmArgs,
 }
 
 impl AutoScriptVM {
-    pub fn new(prototypes: AutoScriptPrototype) -> Self {
+    pub fn new(prototypes: AutoScriptPrototype, args: VmArgs) -> Self {
         let mut interp = unsafe {
             Self {
                 prototypes,
                 main_thread: Thread::new_dangle(),
                 mem: Arc::new(Mem::new()),
+                args,
             }
         };
         let interp_ptr: *mut AutoScriptVM = (&mut interp) as *mut AutoScriptVM;
