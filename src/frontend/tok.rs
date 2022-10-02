@@ -27,6 +27,7 @@ pub enum Tok {
     KwdIf,
     KwdElse,
     KwdElif,
+    KwdWhile,
 
 
     // operator

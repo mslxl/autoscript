@@ -7,6 +7,7 @@ pub enum StmtNode {
     ExprStmt(Box<ExprNode>),
     RetStmt(Option<Box<ExprNode>>),
     VarStmt(String, Option<TypeInfo>, bool, Box<ExprNode>),
+    WhileStmt(Box<ExprNode>, Block)
 }
 
 

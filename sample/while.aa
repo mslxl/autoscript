@@ -1,0 +1,7 @@
+fn main(){
+    while false {
+        print(114514);
+    }
+    print(15);
+    return;
+}

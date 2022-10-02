@@ -8,7 +8,7 @@ use crate::vm::slot::Slot;
 #[derive(Debug)]
 pub struct Thread {
     name: String,
-    pc: usize,
+    pc: i32,
     pub frame_stack: Vec<Frame>,
     pub vm: *mut AutoScriptVM,
 }
@@ -90,7 +90,7 @@ impl Thread {
         self.push_new_frame(function.local_var_size, Rc::clone(&function));
         self.loop_interpret();
     }
-    pub fn pc(&self) -> usize {
+    pub fn pc(&self) -> i32 {
         self.pc
     }
 }
@@ -99,7 +99,7 @@ impl Thread {
 pub struct Frame {
     pub local_vars: LocalVars,
     pub operand_stack: Vec<Slot>,
-    pub next_pc: usize,
+    pub next_pc: i32,
     pub function: Rc<FunctionPrototype>,
     pub thread: *mut Thread,
 }

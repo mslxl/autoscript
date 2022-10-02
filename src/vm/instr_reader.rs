@@ -3,13 +3,13 @@ use crate::vm::instr::{Instr, Instructions};
 
 pub trait AutoScriptInstrReader{
     fn read_instr(&mut self) -> Instr;
-    fn set_pc(&mut self, pc:usize);
-    fn pc(&self) -> usize;
+    fn set_pc(&mut self, pc:i32);
+    fn pc(&self) -> i32;
 }
 
 pub struct InstrReader{
     instr: Rc<Instructions>,
-    pc: usize,
+    pc: i32,
 }
 
 impl AutoScriptInstrReader for InstrReader{
@@ -18,11 +18,11 @@ impl AutoScriptInstrReader for InstrReader{
         self.pc+=1;
         instr.unwrap()
     }
-    fn set_pc(&mut self, pc: usize) {
+    fn set_pc(&mut self, pc: i32) {
         self.pc += pc;
     }
 
-    fn pc(&self) -> usize {
+    fn pc(&self) -> i32 {
         self.pc
     }
 }
@@ -35,10 +35,10 @@ impl InstrReader{
         }
     }
     pub fn is_unfinished(&self) -> bool {
-        return self.pc < self.instr.len()
+        return self.pc < self.instr.len() as i32
     }
 
-    pub fn reset(&mut self, instr: Rc<Instructions>, pc:usize){
+    pub fn reset(&mut self, instr: Rc<Instructions>, pc:i32){
         self.instr = instr;
         self.pc = pc;
     }

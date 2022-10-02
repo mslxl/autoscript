@@ -51,6 +51,7 @@ tag_token!(val_kwd_tag, Tok::KwdVar);
 tag_token!(if_kwd_tag, Tok::KwdIf);
 tag_token!(elif_kwd_tag, Tok::KwdElif);
 tag_token!(else_kwd_tag, Tok::KwdElse);
+tag_token!(while_kwd_tag, Tok::KwdWhile);
 
 tag_token!(import_kwd_tag, Tok::KwdImport);
 
@@ -272,11 +273,18 @@ fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     })(input)
 }
 
+fn parse_while_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+    let (i1, (cond, stmt)) = preceded(while_kwd_tag, pair(parse_expr, parse_block_stmt))(input)?;
+
+    Ok((i1, StmtNode::WhileStmt(cond, stmt)))
+}
+
 fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     alt((
         parse_ret_stmt,
         parse_expr_stmt,
-        parse_var_stmt))(input)
+        parse_var_stmt,
+        parse_while_stmt))(input)
 }
 
 fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {

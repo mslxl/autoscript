@@ -118,6 +118,7 @@ fn lex_ident_and_keyword(input: &[u8]) -> IResult<&[u8], Tok> {
                 "if" => Tok::KwdIf,
                 "else" => Tok::KwdElse,
                 "elif" => Tok::KwdElif,
+                "while" => Tok::KwdWhile,
                 _ => Tok::Ident(syntax.to_string())
             })
         }

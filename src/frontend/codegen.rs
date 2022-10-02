@@ -88,6 +88,18 @@ impl CodeGen {
                 self.env.val_insert(name.clone(), var_info);
 
                 expr_ret.instr + convert_instr + vec![Instr::Store(slot_index)].into()
+            },
+            StmtNode::WhileStmt(cond, block) => {
+                let cond = self.translate_expr(cond, cur_module, header);
+                assert_eq!(cond.ty, TypeInfo::Bool);
+
+                let instr = block.iter()
+                    .map(|x| self.translate_stmt(x, cur_module, header))
+                    .reduce(|a,b| a + b)
+                    .unwrap();
+                let offset = instr.len() as i32;
+
+                cond.instr + vec![Instr::JumpIfN(offset + 1)].into() + instr + vec![Instr::Jump(-offset-1)].into()
             }
         }
     }
@@ -367,9 +379,9 @@ impl CodeGen {
             self.env.pop_scope();
 
             let instr = cond_gen.instr
-                + vec![Instr::JumpIf(else_code.instr.len() + 1)].into()
+                + vec![Instr::JumpIf(else_code.instr.len() as i32 + 1)].into()
                 + else_code.instr
-                + vec![Instr::Jump(block_code.instr.len())].into()
+                + vec![Instr::Jump(block_code.instr.len() as i32)].into()
                 + block_code.instr;
             let ty = if block_code.ty == else_code.ty {
                 block_code.ty.clone()
