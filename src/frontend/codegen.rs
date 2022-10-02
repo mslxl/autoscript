@@ -93,15 +93,22 @@ impl CodeGen {
                 let cond = self.translate_expr(cond, cur_module, header);
                 assert_eq!(cond.ty, TypeInfo::Bool);
 
-                let instr = block.iter()
-                    .map(|x| self.translate_stmt(x, cur_module, header))
-                    .reduce(|a,b| a + b)
-                    .unwrap();
-                let offset = instr.len() as i32;
-
-                cond.instr + vec![Instr::JumpIfN(offset + 1)].into() + instr + vec![Instr::Jump(-offset-1)].into()
+                let instr = self.translate_block(block, cur_module, header);
+                let unsatisfied_offset = instr.len() as i32;
+                let rejudge_offset = -(unsatisfied_offset + 1 + cond.instr.len() as i32);
+                cond.instr + vec![Instr::JumpIfN(unsatisfied_offset + 1)].into() + instr + vec![Instr::Jump(rejudge_offset - 1)].into()
             }
         }
+    }
+
+    fn translate_block(&mut self, block: &[StmtNode], cur_module: &str, header: &FunctionHeader) -> Instructions {
+        self.env.push_scope();
+        let instr = block.iter()
+            .map(|x| self.translate_stmt(x, cur_module, header))
+            .reduce(|a,b| a + b)
+            .unwrap();
+        self.env.pop_scope();
+        instr
     }
 
     fn try_convert_type(&self, from: &TypeInfo, target: &TypeInfo) -> Instructions {
