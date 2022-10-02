@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::frontend::ast::{ExprNode, Op, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{Block, ExprNode, Op, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
 use crate::frontend::module_man::ProgramModule;
@@ -38,16 +38,13 @@ impl CodeGen {
                     ty: i.1.clone(),
                     binding_slot: slot_id,
                     is_mut: false,
-                })
+                });
             }
             param.len()
         } else {
             0
         };
-        let instr: Instructions = program.block.iter()
-            .map(|stmt|  self.translate_stmt(stmt, cur_module, &program.header))
-            .reduce(|l, r| l + r)
-            .unwrap();
+        let instr: Instructions = self.translate_block(&program.block, cur_module, &program.header);
         let table_size = self.env.max_val_table_size;
         self.env.pop_scope();
         FunctionPrototype {
@@ -120,6 +117,7 @@ impl CodeGen {
             panic!()
         }
     }
+
 
 
     fn translate_module(&mut self, name: &str, output: &mut AutoScriptPrototype) -> Result<(), ()>{
@@ -420,10 +418,7 @@ impl CodeGen {
                 )
             } else {
                 let (head, last) = block.split_at(block.len() - 1);
-                let head_instr = head.iter()
-                    .map(|x| self.translate_stmt(x, cur_module,header))
-                    .reduce(|a, b| a + b)
-                    .unwrap_or(Instructions::new());
+                let head_instr = self.translate_block(head, cur_module, header);
                 let last_stmt = last.last().unwrap();
                 match last_stmt {
                     StmtNode::ExprStmt(expr) => {
@@ -443,6 +438,20 @@ impl CodeGen {
                 }
             }
         }else{
+            panic!()
+        }
+    }
+
+    fn translate_expr_assign(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) -> GenInfo {
+        if let ExprNode::AssignExpr(id, expr) = expr.as_ref() {
+            let expr = self.translate_expr(expr, cur_module, header);
+            let info = self.env.val_lookup(id).expect(&format!("Can't find var named"));
+            assert_eq!(info.ty, expr.ty);
+            GenInfo{
+                instr: expr.instr + vec![Instr::Dup, Instr::Store(info.binding_slot)].into(),
+                ty: expr.ty
+            }
+        } else {
             panic!()
         }
     }
@@ -481,6 +490,9 @@ impl CodeGen {
             }
             ExprNode::BlockExpr(_) => {
                 self.translate_expr_blockexpr(expr, cur_module, header)
+            }
+            ExprNode::AssignExpr(_, _) => {
+                self.translate_expr_assign(expr, cur_module, header)
             }
         }
     }

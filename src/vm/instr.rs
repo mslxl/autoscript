@@ -47,6 +47,7 @@ pub enum Instr {
     Call(String),
     CallVM(String),
 
+    Dup,
     Store(usize),
     Load(usize),
     Pop,
@@ -191,12 +192,6 @@ impl Instr {
                 unsafe {
                     let thread = frame.thread.as_mut().unwrap();
                     let frame = thread.pop_frame().unwrap();
-
-                    // println!("Process finish. Local variable table:");
-                    // let table = frame.local_vars;
-                    // for i in 0..table.len() {
-                    //     println!("{}\t: {:?}", i, table.get(i))
-                    // }
                 }
             }
             Instr::BPush(b) => {
@@ -267,10 +262,15 @@ impl Instr {
                 frame.operand_stack.pop().unwrap();
             }
             Instr::NPush => {
+
                 frame.operand_stack.push(Slot::Unit);
             }
+            Instr::Dup => {
+                let slot = frame.operand_stack.last().unwrap().clone();
+                frame.operand_stack.push(slot);
+            }
             Instr::Nop => {}
-            _ => todo!("{}", self)
+
         }
     }
 }
@@ -354,7 +354,8 @@ impl Display for Instr {
             Instr::Load(idx) => write!(f, "load {}", idx),
             Instr::Pop => write!(f, "pop"),
             Instr::NPush => write!(f, "npush"),
-            Instr::CallVM(signature) => write!(f, "call_vm {}", signature)
+            Instr::CallVM(signature) => write!(f, "call_vm {}", signature),
+            Instr::Dup => write!(f, "dup")
         }
     }
 }

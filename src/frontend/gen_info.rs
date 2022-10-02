@@ -79,9 +79,10 @@ impl Env {
     fn top(&self) -> &EnvScope {
         self.stack.last().unwrap()
     }
-    pub fn val_insert(&mut self, name: String, ty: VarInfo) {
+    /// Insert a value to value environment, return slot index
+    pub fn val_insert(&mut self, name: String, ty: VarInfo) -> usize{
         self.top_mut().val_table.insert(name, ty);
-        self.current_val_size();
+        self.current_val_size() - 1
     }
     pub fn val_lookup(&mut self, name: &str) -> Option<&VarInfo> {
         for scope in self.stack.iter().rev() {

@@ -103,7 +103,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        alt((parse_num, parse_fn_call, parse_ident_expr, parse_bool, parse_if_expr))(input)
+        alt((parse_fn_call, parse_assign_expr, parse_num, parse_bool, parse_if_expr, parse_ident_expr))(input)
     }
 }
 
@@ -213,33 +213,32 @@ fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
 }
 
 fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    fn parse_else(input:Tokens) -> IResult<Tokens, Box<ExprNode>>{
+    fn parse_else(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         preceded(
             else_kwd_tag,
             map(
                 parse_block_stmt,
                 |x| Box::new(ExprNode::BlockExpr(x))))(input)
     }
-    fn parse_elif(input:Tokens) -> IResult<Tokens, Box<ExprNode>>{
+    fn parse_elif(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let (i1, (_, cond, code)) = tuple(
             (elif_kwd_tag,
              parse_expr,
              parse_block_stmt))(input)?;
         let ret = opt(alt((parse_elif, parse_else)))(i1);
         if let Ok((tok, els)) = ret {
-            Ok((tok,Box::new(
+            Ok((tok, Box::new(
                 ExprNode::IfExpr(
                     cond,
                     Box::new(ExprNode::BlockExpr(code)),
                     els))))
-        }else{
-            Ok((i1,Box::new(
+        } else {
+            Ok((i1, Box::new(
                 ExprNode::IfExpr(
                     cond,
                     Box::new(ExprNode::BlockExpr(code)),
                     None))))
         }
-
     }
 
     let (i1, (_, cond, code, els)) = tuple((if_kwd_tag, parse_expr, parse_block_stmt, opt(alt((parse_elif, parse_else)))))(input)?;
@@ -266,6 +265,12 @@ fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     Ok((i1, stmt))
 }
 
+fn parse_assign_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, (id, _, expr)) = tuple((parse_ident, assign_tag, parse_expr))(input)?;
+    let expr = Box::new(ExprNode::AssignExpr(id, expr));
+    Ok((i1, expr))
+}
+
 
 fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     map(delimited(ret_kwd_tag, opt(parse_expr), opt(semicolon_tag)), |expr| {
@@ -282,9 +287,9 @@ fn parse_while_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
 fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
     alt((
         parse_ret_stmt,
-        parse_expr_stmt,
         parse_var_stmt,
-        parse_while_stmt))(input)
+        parse_while_stmt,
+        parse_expr_stmt, ))(input)
 }
 
 fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {
@@ -318,7 +323,7 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
                 None => None,
                 Some((_, id)) => Some(TypeInfo::from(id.as_str())),
             },
-            origin: FunctionOrigin::Source
+            origin: FunctionOrigin::Source,
         },
         block,
     });
@@ -337,7 +342,7 @@ fn parse_program(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens, module_name:&str) -> Vec<ProgramRootElement> {
+    pub fn parse(tokens: Tokens, module_name: &str) -> Vec<ProgramRootElement> {
         let (i1, program) = many0(parse_program)(tokens).unwrap();
         assert!(i1.tok.is_empty());
         program.into_iter()

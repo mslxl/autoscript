@@ -22,6 +22,7 @@ pub enum ExprNode {
     FnCall(String, Option<Vec<Box<ExprNode>>>),
     UnaryOp(UnaryOp, Box<ExprNode>),
     BlockExpr(Block),
+    AssignExpr(String, Box<ExprNode>),
     //last stmt is return value
     IfExpr(Box<ExprNode>, Box<ExprNode>, Option<Box<ExprNode>>),
 }
