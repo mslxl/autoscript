@@ -1,7 +1,5 @@
 extern crate core;
 
-use std::env;
-use std::ffi::OsString;
 use std::path::PathBuf;
 use clap::Parser;
 

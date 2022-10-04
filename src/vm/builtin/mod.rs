@@ -7,7 +7,7 @@ use crate::vm::builtin::builtin_func::FnPrint;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
 
-pub mod builtin_number;
+pub mod builtin_class;
 pub mod builtin_func;
 
 pub trait FunctionRustBinding: Debug + FunctionRustBindingDynClone {

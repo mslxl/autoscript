@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 use std::ops;
-use std::ops::{AddAssign, Not};
 use std::rc::Rc;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
@@ -191,7 +190,7 @@ impl Instr {
             Instr::Return => {
                 unsafe {
                     let thread = frame.thread.as_mut().unwrap();
-                    let frame = thread.pop_frame().unwrap();
+                    let _ = thread.pop_frame().unwrap();
                 }
             }
             Instr::BPush(b) => {

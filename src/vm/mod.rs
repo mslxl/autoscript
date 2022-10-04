@@ -1,4 +1,3 @@
-pub mod obj;
 pub mod instr;
 pub mod builtin;
 pub mod mem;
