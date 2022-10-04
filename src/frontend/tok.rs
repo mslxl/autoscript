@@ -18,6 +18,7 @@ pub enum Tok {
     Colon,
     RightArrow,
     Comma,
+    Dot,
     // keyword
     KwdFn,
     KwdRet,

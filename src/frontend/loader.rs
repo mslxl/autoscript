@@ -11,8 +11,8 @@ use crate::frontend::tok::Tokens;
 pub struct ScriptFileLoader {
     load_path: Vec<PathBuf>,
     file_queue: Vec<PathBuf>,
-    loaded_file: HashSet<PathBuf>,
-    modules: HashMap<String, Vec<ProgramRootElement>>,
+    loaded_file_set: HashSet<PathBuf>,
+    loaded_module: HashMap<String, Vec<ProgramRootElement>>,
 }
 
 impl ScriptFileLoader {
@@ -20,12 +20,18 @@ impl ScriptFileLoader {
         Self {
             load_path: vec![env::current_dir().unwrap()],
             file_queue: Vec::new(),
-            loaded_file: Default::default(),
-            modules: HashMap::new(),
+            loaded_file_set: Default::default(),
+            loaded_module: HashMap::new(),
         }
     }
 
-    fn add_module(&mut self, name: &str) -> Result<(), ()> {
+    fn add_module(&mut self, name: &str, parent: Option<&PathBuf>) -> Result<(), ()> {
+        if let Some(parent_file) = parent {
+            let file_to_load = parent_file.parent().unwrap().join(name).with_extension("aa");
+            self.file_queue.push(file_to_load);
+            return Ok(())
+        }
+
         for path in &self.load_path {
             let file_name = path.join(name);
             if file_name.exists() {
@@ -33,13 +39,14 @@ impl ScriptFileLoader {
                 return self.load_from_queue();
             }
         }
+
         Err(())
     }
 
     fn load_from_queue(&mut self) -> Result<(), ()> {
         while !self.file_queue.is_empty() {
             let file = self.file_queue.pop().unwrap();
-            if !self.loaded_file.contains(&file) {
+            if !self.loaded_file_set.contains(&file) {
                 self.add_file(&file)?;
             }
         }
@@ -51,7 +58,7 @@ impl ScriptFileLoader {
         let name = file.file_stem().unwrap().to_str().unwrap();
 
         let code = fs::read_to_string(&file).unwrap();
-        self.loaded_file.insert(file.clone());
+        self.loaded_file_set.insert(file.clone());
 
         let token = Lexer::lex_tokens(code.as_bytes());
         let programs = Parser::parse(Tokens::new(&token), name)
@@ -59,20 +66,22 @@ impl ScriptFileLoader {
             .filter(|e| {
                 match &e {
                     ProgramRootElement::Import(module_name) => {
-                        self.add_module(module_name).unwrap();
+                        self.add_module(module_name, Some(&file)).unwrap();
                         false
                     }
                     _ => true
                 }
             }).collect();
 
-        self.modules.insert(name.to_string(), programs);
+        self.loaded_module.insert(name.to_string(), programs);
 
         Ok(())
     }
-    pub fn unwrap(self) -> HashMap<String, ProgramModule> {
+    pub fn unwrap(mut self) -> HashMap<String, ProgramModule> {
+        let _ = &self.load_from_queue().unwrap();
+
         let mut map: HashMap<String, ProgramModule> = HashMap::new();
-        for (module_name, element_vec) in self.modules {
+        for (module_name, element_vec) in self.loaded_module {
             let mut functions = HashMap::new();
             for element in element_vec {
                 match element {

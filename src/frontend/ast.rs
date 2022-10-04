@@ -10,16 +10,16 @@ pub enum StmtNode {
     WhileStmt(Box<ExprNode>, Block)
 }
 
-
+pub type AccessedIdent = Vec<String>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprNode {
     Integer(i64),
     Float(f64),
     Bool(bool),
-    Ident(String),
+    Ident(AccessedIdent),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
-    FnCall(String, Option<Vec<Box<ExprNode>>>),
+    FnCall(AccessedIdent, Option<Vec<Box<ExprNode>>>),
     UnaryOp(UnaryOp, Box<ExprNode>),
     BlockExpr(Block),
     AssignExpr(String, Box<ExprNode>),

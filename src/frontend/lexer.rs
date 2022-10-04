@@ -60,6 +60,7 @@ literal_lex!(semicolon_punctuation, ";", Tok::Semicolon);
 literal_lex!(colon_punctuation, ":",Tok::Colon);
 literal_lex!(rarrow_punctuation, "->", Tok::RightArrow);
 literal_lex!(comma_punctuation, ",", Tok::Comma);
+literal_lex!(dot_puntuation, ".", Tok::Dot);
 
 fn lex_punctuations(input: &[u8]) -> IResult<&[u8], Tok> {
     alt((
@@ -70,7 +71,8 @@ fn lex_punctuations(input: &[u8]) -> IResult<&[u8], Tok> {
         semicolon_punctuation,
         rarrow_punctuation,
         colon_punctuation,
-        comma_punctuation
+        comma_punctuation,
+        dot_puntuation
     ))(input)
 }
 

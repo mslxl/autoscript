@@ -6,7 +6,7 @@ use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use crate::frontend::ast::{Block, ExprNode, Op, ProgramRootElement, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{AccessedIdent, Block, ExprNode, Op, ProgramRootElement, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
 use crate::frontend::tok::{Tok, Tokens};
 macro_rules! tag_token (
@@ -41,6 +41,7 @@ tag_token!(colon_tag, Tok::Colon);
 tag_token!(rarrow_tag, Tok::RightArrow);
 tag_token!(comma_tag, Tok::Comma);
 tag_token!(not_tag, Tok::Not);
+tag_token!(dot_tag, Tok::Dot);
 
 tag_token!(fn_kwd_tag, Tok::KwdFn);
 tag_token!(ret_kwd_tag, Tok::KwdRet);
@@ -68,8 +69,14 @@ fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     }
 }
 
+fn parse_accessed_ident(input: Tokens) -> IResult<Tokens, AccessedIdent> {
+    let (i1, (id, mut idents)) = pair(parse_ident, many0(preceded(dot_tag, parse_ident)))(input)?;
+    idents.insert(0, id);
+    Ok((i1, idents))
+}
+
 fn parse_ident_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    map(parse_ident, |tok| Box::new(ExprNode::Ident(tok)))(input)
+    map(parse_accessed_ident, |tok| Box::new(ExprNode::Ident(tok)))(input)
 }
 
 fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
@@ -203,7 +210,7 @@ fn parse_comma_expr(input: Tokens) -> IResult<Tokens, Vec<Box<ExprNode>>> {
 }
 
 fn parse_fn_call(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    let (i1, (fn_name, _, args, _)) = tuple((parse_ident, lparen_tag, opt(parse_comma_expr), rparen_tag))(input)?;
+    let (i1, (fn_name, _, args, _)) = tuple((parse_accessed_ident, lparen_tag, opt(parse_comma_expr), rparen_tag))(input)?;
     let expr = Box::new(ExprNode::FnCall(fn_name, args));
     Ok((i1, expr))
 }

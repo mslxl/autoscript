@@ -1,0 +1,8 @@
+import hello;
+
+fn main(){
+     val ret = hello.gcd(12, 18);
+     prelude.print(ret);
+     assert(true);
+     return;
+}

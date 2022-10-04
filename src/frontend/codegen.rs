@@ -20,13 +20,17 @@ impl CodeGen {
         }
     }
 
-    fn find_function(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> Option<&FunctionHeader> {
-        for (_, module) in &self.modules {
-            if let Some(header) = module.search_function(name, param) {
-                return Some(header)
-            }
+    fn find_function(&self, name: &str, cur_module: &str, access_module: Option<&str>, param: Option<&Vec<TypeInfo>>) -> Option<&FunctionHeader> {
+        let module_name = access_module.unwrap_or(cur_module);
+        let module = self.modules.get(module_name).unwrap();
+        let prelude = self.modules.get("prelude").unwrap();
+        if let Some(header) = module.search_function(name, param) {
+            return Some(header);
+        } else if let Some(header) = prelude.search_function(name, param) {
+            return Some(header);
+        } else {
+            None
         }
-        None
     }
 
     fn translate_function(&mut self, program: &ProgramSrcFnElement, cur_module: &str) -> FunctionPrototype {
@@ -58,7 +62,7 @@ impl CodeGen {
 
     fn translate_stmt(&mut self, stmt: &StmtNode, cur_module: &str, header: &FunctionHeader) -> Instructions {
         match stmt {
-            StmtNode::ExprStmt(expr) => self.translate_expr(expr, cur_module,header).instr + vec![Instr::Pop].into(),
+            StmtNode::ExprStmt(expr) => self.translate_expr(expr, cur_module, header).instr + vec![Instr::Pop].into(),
             StmtNode::RetStmt(expr) => match expr {
                 Some(expr) => {
                     let expr_info = self.translate_expr(expr, cur_module, header);
@@ -85,7 +89,7 @@ impl CodeGen {
                 self.env.val_insert(name.clone(), var_info);
 
                 expr_ret.instr + convert_instr + vec![Instr::Store(slot_index)].into()
-            },
+            }
             StmtNode::WhileStmt(cond, block) => {
                 let cond = self.translate_expr(cond, cur_module, header);
                 assert_eq!(cond.ty, TypeInfo::Bool);
@@ -100,16 +104,22 @@ impl CodeGen {
 
     fn translate_block(&mut self, block: &[StmtNode], cur_module: &str, header: &FunctionHeader) -> Instructions {
         self.env.push_scope();
-        let instr = block.iter()
-            .map(|x| self.translate_stmt(x, cur_module, header))
-            .reduce(|a,b| a + b)
-            .unwrap();
+        let instr = if block.is_empty() {
+            Instructions::new()
+        } else if block.len() == 1 {
+            self.translate_stmt(block.first().unwrap(), cur_module, header)
+        } else {
+            block.iter()
+                .map(|x| self.translate_stmt(x, cur_module, header))
+                .reduce(|a, b| a + b)
+                .unwrap()
+        };
         self.env.pop_scope();
         instr
     }
 
     fn try_convert_type(&self, from: &TypeInfo, target: &TypeInfo) -> Instructions {
-        if from == target  || target == &TypeInfo::Any{
+        if from == target || target == &TypeInfo::Any {
             vec![].into()
         } else if from == &TypeInfo::Int && target == &TypeInfo::Float {
             vec![Instr::I2F].into()
@@ -119,8 +129,7 @@ impl CodeGen {
     }
 
 
-
-    fn translate_module(&mut self, name: &str, output: &mut AutoScriptPrototype) -> Result<(), ()>{
+    fn translate_module(&mut self, name: &str, output: &mut AutoScriptPrototype) -> Result<(), ()> {
         let src_module = self.modules.get(name).unwrap().clone();
         for element in src_module.function {
             for func in element.1 {
@@ -145,10 +154,10 @@ impl CodeGen {
         prototype
     }
 
-    fn translate_expr_op(&mut self, expr: &Box<ExprNode>, cur_module:&str, header: &FunctionHeader) -> GenInfo{
+    fn translate_expr_op(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) -> GenInfo {
         if let ExprNode::Op(left, op, right) = expr.as_ref() {
-            let mut left_expr = self.translate_expr(left, cur_module,header);
-            let mut right_expr = self.translate_expr(right, cur_module,header);
+            let mut left_expr = self.translate_expr(left, cur_module, header);
+            let mut right_expr = self.translate_expr(right, cur_module, header);
             if left_expr.ty == TypeInfo::Int && right_expr.ty == TypeInfo::Int {
                 match op {
                     Op::Add => GenInfo::new(
@@ -264,14 +273,14 @@ impl CodeGen {
             } else {
                 panic!("Operator was not supported!")
             }
-        } else{
+        } else {
             panic!()
         }
     }
 
-    fn translate_expr_unary(&mut self, expr: &Box<ExprNode>, cur_module:&str, header: &FunctionHeader) -> GenInfo{
+    fn translate_expr_unary(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) -> GenInfo {
         if let ExprNode::UnaryOp(op, expr) = expr.as_ref() {
-            let sub_expr = self.translate_expr(expr, cur_module,header);
+            let sub_expr = self.translate_expr(expr, cur_module, header);
             match op {
                 UnaryOp::Plus => {
                     match sub_expr.ty {
@@ -305,15 +314,15 @@ impl CodeGen {
                     }
                 }
             }
-        }else{
+        } else {
             panic!()
         }
     }
 
-    fn translate_expr_fncall(&mut self, expr: &Box<ExprNode>, cur_module:&str, header: &FunctionHeader) ->GenInfo{
-        if let ExprNode::FnCall(fn_name, param) = expr.as_ref() {
+    fn translate_expr_fncall(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) -> GenInfo {
+        if let ExprNode::FnCall(fn_id, param) = expr.as_ref() {
             let args: Option<Vec<GenInfo>> = if let Some(exprs) = param {
-                Some(exprs.iter().map(|e| self.translate_expr(e, cur_module,header)).collect())
+                Some(exprs.iter().map(|e| self.translate_expr(e, cur_module, header)).collect())
             } else {
                 None
             };
@@ -322,7 +331,15 @@ impl CodeGen {
                 .map(|vec| vec.iter().map(|e| e.ty.clone())
                     .collect::<Vec<TypeInfo>>());
 
-            let fn_header = self.find_function(fn_name, types.as_ref())
+            let fn_name = fn_id.last().unwrap();
+
+
+            let access_module = fn_id[0..fn_id.len() - 1]
+                .iter()
+                .map(|x| x.to_string())
+                .reduce(|a,b| format!("{}.{}", a, b));
+
+            let fn_header = self.find_function(fn_name, cur_module, access_module.as_deref(), types.as_ref())
                 .expect(&format!("Can't find function: {}", fn_name));
             let args = if let Some(param) = args {
                 let require_types = fn_header.param
@@ -362,14 +379,14 @@ impl CodeGen {
                 before_instr + vec![call_instr].into(),
                 fn_header.ret.clone().unwrap_or(TypeInfo::Unit),
             )
-        }else{
+        } else {
             panic!()
         }
     }
 
-    fn translate_expr_ifexpr(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) ->GenInfo{
+    fn translate_expr_ifexpr(&mut self, expr: &Box<ExprNode>, cur_module: &str, header: &FunctionHeader) -> GenInfo {
         if let ExprNode::IfExpr(cond, block, else_branch) = expr.as_ref() {
-            let cond_gen = self.translate_expr(cond, cur_module,header);
+            let cond_gen = self.translate_expr(cond, cur_module, header);
             assert_eq!(cond_gen.ty, TypeInfo::Bool);
             self.env.push_scope();
             let block_code = self.translate_expr(block, cur_module, header);
@@ -437,7 +454,7 @@ impl CodeGen {
                     }
                 }
             }
-        }else{
+        } else {
             panic!()
         }
     }
@@ -447,9 +464,9 @@ impl CodeGen {
             let expr = self.translate_expr(expr, cur_module, header);
             let info = self.env.val_lookup(id).expect(&format!("Can't find var named"));
             assert_eq!(info.ty, expr.ty);
-            GenInfo{
+            GenInfo {
                 instr: expr.instr + vec![Instr::Dup, Instr::Store(info.binding_slot)].into(),
-                ty: expr.ty
+                ty: expr.ty,
             }
         } else {
             panic!()
@@ -476,7 +493,8 @@ impl CodeGen {
                 self.translate_expr_unary(expr, cur_module, header)
             }
             ExprNode::Ident(id) => {
-                let ident_info = self.env.val_lookup(&id).unwrap();
+                assert_eq!(id.len(), 1);
+                let ident_info = self.env.val_lookup(&id.first().unwrap()).unwrap();
                 GenInfo::new(
                     vec![Instr::Load(ident_info.binding_slot)].into(),
                     ident_info.ty.clone(),
