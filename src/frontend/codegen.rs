@@ -1,15 +1,20 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use crate::frontend::ast::{Block, ExprNode, Op, StmtNode, TypeInfo, UnaryOp};
+use crate::frontend::ast::{ExprNode, Op, StmtNode, TypeInfo, UnaryOp};
 use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
 use crate::frontend::module_man::ProgramModule;
 use crate::vm::instr::{Instr, Instructions};
+use crate::vm::mem::Obj;
+use crate::vm::slot::Slot;
 use crate::vm::vm::{AutoScriptPrototype, FunctionPrototype};
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use super::gen_info::ConstantPoolBuilder;
 
 pub struct CodeGen {
     env: Env,
     modules: HashMap<String, ProgramModule>,
+    const_pool_builder: ConstantPoolBuilder,
 }
 
 impl CodeGen {
@@ -17,6 +22,7 @@ impl CodeGen {
         Self {
             env: Env::default(),
             modules,
+            const_pool_builder: ConstantPoolBuilder::new(),
         }
     }
 
@@ -146,11 +152,18 @@ impl CodeGen {
         Ok(())
     }
 
-    pub fn translate_modules(&mut self) -> AutoScriptPrototype {
+    pub fn translate_modules(mut self) -> AutoScriptPrototype {
         let mut prototype = AutoScriptPrototype::new();
-        for name in self.modules.keys().map(|x| x.clone()).collect::<Vec<String>>() {
-            self.translate_module(name.as_str(), &mut prototype).unwrap();
+        for name in self
+            .modules
+            .keys()
+            .map(|x| x.clone())
+            .collect::<Vec<String>>()
+        {
+            self.translate_module(name.as_str(), &mut prototype)
+                .unwrap();
         }
+        prototype.replace_constant_pool(self.const_pool_builder.into());
         prototype
     }
 

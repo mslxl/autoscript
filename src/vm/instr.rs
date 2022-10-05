@@ -50,9 +50,11 @@ pub enum Instr {
     Store(usize),
     Load(usize),
     Pop,
-    ReturnValue,
-    Return,
-    Nop,
+    ReturnValue, // pop a value from top frame, and then pop a frame, push the value to next
+    Return, // pop a stack frame, do thing
+    Nop, // do nothing
+
+    CPush(usize), // push from constant pool
 }
 
 impl Instr {
@@ -268,7 +270,14 @@ impl Instr {
                 let slot = frame.operand_stack.last().unwrap().clone();
                 frame.operand_stack.push(slot);
             }
-            Instr::Nop => {}
+            Instr::Nop => {},
+            Instr::CPush(idx) => {
+                let vm = unsafe {
+                    frame.thread.as_ref().unwrap().vm.as_ref().unwrap()
+                };
+                let slot = vm.prototypes.get_constant(*idx).unwrap();
+                frame.operand_stack.push(slot)
+            }
 
         }
     }
@@ -354,7 +363,8 @@ impl Display for Instr {
             Instr::Pop => write!(f, "pop"),
             Instr::NPush => write!(f, "npush"),
             Instr::CallVM(signature) => write!(f, "call_vm {}", signature),
-            Instr::Dup => write!(f, "dup")
+            Instr::Dup => write!(f, "dup"),
+            Instr::CPush(i) => write!(f, "const_push {}", i)
         }
     }
 }

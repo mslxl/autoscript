@@ -1,7 +1,11 @@
+use crate::frontend::ast::TypeInfo;
+use crate::vm::const_pool::ConstantPool;
+use crate::vm::instr::Instructions;
+use crate::vm::slot::Slot;
 use std::cmp::max;
 use std::collections::HashMap;
-use crate::frontend::ast::TypeInfo;
-use crate::vm::instr::Instructions;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hasher, Hash};
 
 pub struct GenInfo {
     pub instr: Instructions,
@@ -10,10 +14,7 @@ pub struct GenInfo {
 
 impl GenInfo {
     pub fn new(instr: Instructions, ty: TypeInfo) -> Self {
-        Self {
-            instr,
-            ty,
-        }
+        Self { instr, ty }
     }
 }
 
@@ -80,7 +81,7 @@ impl Env {
         self.stack.last().unwrap()
     }
     /// Insert a value to value environment, return slot index
-    pub fn val_insert(&mut self, name: String, ty: VarInfo) -> usize{
+    pub fn val_insert(&mut self, name: String, ty: VarInfo) -> usize {
         self.top_mut().val_table.insert(name, ty);
         self.current_val_size() - 1
     }
@@ -93,8 +94,58 @@ impl Env {
         None
     }
     pub fn current_val_size(&mut self) -> usize {
-        let len = self.stack.iter().map(|x| x.val_table.len()).reduce(|a, b| a + b).unwrap_or(0);
+        let len = self
+            .stack
+            .iter()
+            .map(|x| x.val_table.len())
+            .reduce(|a, b| a + b)
+            .unwrap_or(0);
         self.max_val_table_size = max(self.max_val_table_size, len);
         len
+    }
+}
+
+pub struct ConstantPoolBuilder {
+    pool: Vec<Slot>,
+    table: HashMap<u64, usize>
+}
+
+impl ConstantPoolBuilder {
+    pub fn new() -> Self {
+        Self {
+            pool: Vec::new(),
+            table: HashMap::new()
+        }
+    }
+
+    fn hash_key(key: &impl Hash) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    pub fn insert(&mut self, key: &impl Hash, slot: Slot) -> usize{
+        let key = Self::hash_key(key);
+        
+        if self.table.contains_key(&key) {
+            self.table.get(&key).unwrap().clone()
+        }else{
+            self.pool.push(slot);
+            let pos = self.pool.len() - 1;
+            self.table.insert(key, pos);
+            pos
+        }
+    }
+
+
+    pub fn find(&self, key: &impl Hash) -> Option<usize> {
+        let key = Self::hash_key(key);
+        self.table.get(&key).map(usize::clone)
+    } 
+}
+
+impl Into<ConstantPool> for ConstantPoolBuilder {
+    fn into(self) -> ConstantPool {
+        self.pool.into()
     }
 }

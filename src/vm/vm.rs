@@ -1,26 +1,30 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::vm::slot::Slot;
 use crate::vm::builtin::FunctionRustBinding;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::thread::Thread;
 use crate::VmArgs;
 
+use super::const_pool::ConstantPool;
+
 
 pub type FnSignature = String;
-#[derive(Debug)]
 pub struct AutoScriptPrototype {
     // temporary implementations
     functions: HashMap<FnSignature, Rc<FunctionPrototype>>,
-    vm_functions: HashMap<FnSignature, Box<dyn FunctionRustBinding>>
+    vm_functions: HashMap<FnSignature, Box<dyn FunctionRustBinding>>,
+    constant_pool: ConstantPool
 }
 
 impl AutoScriptPrototype {
     pub fn new() -> Self {
         Self {
             functions: HashMap::new(),
-            vm_functions: HashMap::new()
+            vm_functions: HashMap::new(),
+            constant_pool: vec![].into()
         }
     }
     pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: FunctionPrototype) {
@@ -35,6 +39,13 @@ impl AutoScriptPrototype {
     }
     pub fn get_vm_function(&self, signature: &str) -> Option<&Box<dyn FunctionRustBinding>> {
         self.vm_functions.get(signature)
+    }
+
+    pub fn replace_constant_pool(&mut self, pool: ConstantPool) -> ConstantPool {
+        std::mem::replace(&mut self.constant_pool, pool)
+    }
+    pub fn get_constant(&self, idx:usize) -> Option<Slot> {
+        self.constant_pool.get(idx)
     }
 }
 
