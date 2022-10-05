@@ -111,5 +111,8 @@ impl FunctionSearchable for ProgramVmFnElement {
         self.header.is_executable_by(name, param)
     }
 }
-
-
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProgramClassElement {
+    pub name: String,
+    pub module: String
+}

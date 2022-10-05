@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
 use std::{env, fs};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use crate::frontend::ast::ProgramRootElement;
 
+use crate::frontend::ast::ProgramRootElement;
 use crate::frontend::lexer::Lexer;
 use crate::frontend::module_man::ProgramModule;
 use crate::frontend::parser::Parser;
@@ -91,7 +91,7 @@ impl ScriptFileLoader {
                         }
                         functions.get_mut(&f.header.name).unwrap().push(f);
                     }
-                    _ => todo!("以后会有其他的元素")
+                    _ => todo!("以后会有其他的元素, e.g. {:?}", element)
                 }
             }
 

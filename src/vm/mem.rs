@@ -1,10 +1,10 @@
 use std::alloc::{GlobalAlloc, System};
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::any::Any;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::{NonNull, null_mut};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize};
 use std::sync::atomic::Ordering::SeqCst;
 use std::thread::yield_now;
@@ -23,7 +23,7 @@ impl<T: Any> AsAny for T {
     }
 }
 
-pub unsafe trait ObjCore: Debug + Any {
+pub unsafe trait ObjCore: Debug + Any + ToString {
     #[allow(unused_variables)]
     fn trace(&self, mark: &mut dyn FnMut(*mut Obj)) {}
 
@@ -37,10 +37,16 @@ pub struct Obj {
     prev: *mut Obj,
 }
 
+impl ToString for Obj{
+    fn to_string(&self) -> String {
+        self.core.to_string()
+    }
+}
+
 static PREV_ALLOC: AtomicU64 = AtomicU64::new(0);
 
 impl Obj {
-    fn make_boxed(core: Box<dyn ObjCore>) -> *mut Self {
+    pub fn make_boxed(core: Box<dyn ObjCore>) -> *mut Self {
         let mut obj = Box::new(Self {
             core,
             mark: ObjMark::White,

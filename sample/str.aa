@@ -1,0 +1,10 @@
+fn main(){
+    var idx = 0;
+    while idx < 10 {
+        val text = "同志酱，我真的好喜欢你啊。为了你，我要唱同志酱 No1";
+        print(text);
+        idx = idx + 1;
+    }
+
+    return;
+}

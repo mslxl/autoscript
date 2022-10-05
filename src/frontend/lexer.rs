@@ -1,13 +1,15 @@
 use std::str::FromStr;
+
+use nom::{AsBytes, IResult};
 use nom::branch::alt;
-use nom::IResult;
-use nom::combinator::{map, map_res, opt, recognize};
-use nom::bytes::complete::tag;
+use nom::bytes::complete::{tag, take};
 use nom::character::complete::{alpha1, alphanumeric1, char, digit1, multispace0};
+use nom::combinator::{map, map_res, opt, recognize};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, tuple};
 
 use crate::frontend::tok::*;
+
 macro_rules! literal_lex {
      ($func_name: ident, $tag_string: literal, $output_token: expr) => {
          fn $func_name<'a>(s: &'a [u8]) -> IResult<&[u8], Tok> {
@@ -86,6 +88,40 @@ fn lex_integer(input: &[u8]) -> IResult<&[u8], Tok> {
     )(input)
 }
 
+
+fn concat_slice_vec(c: &[u8], done: Vec<u8>) -> Vec<u8> {
+    let mut new_vec = c.to_vec();
+    new_vec.extend(&done);
+    new_vec
+}
+
+fn string(input: &[u8]) -> IResult<&[u8], String> {
+    fn pis(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
+        use std::result::Result::*;
+
+        let (i1, c1) = take(1usize)(input)?;
+        match c1.as_bytes() {
+            b"\"" => Ok((input, vec![])),
+            b"\\" => {
+                let (i2, c2) = take(1usize)(i1)?;
+                pis(i2).map(|(slice, done)| (slice, concat_slice_vec(c2, done)))
+            }
+            c => pis(i1).map(|(slice, done)| (slice, concat_slice_vec(c, done))),
+        }
+    }
+    delimited(
+        tag("\""),
+        map_res(
+            pis,
+            |v| std::str::from_utf8(v.as_slice()).map(|s| s.to_string())
+        ),
+        tag("\""))(input)
+}
+
+fn lex_string(input: &[u8]) -> IResult<&[u8], Tok> {
+    map(string, Tok::String)(input)
+}
+
 fn lex_float(input: &[u8]) -> IResult<&[u8], Tok> {
     map(
         map_res(
@@ -121,6 +157,9 @@ fn lex_ident_and_keyword(input: &[u8]) -> IResult<&[u8], Tok> {
                 "else" => Tok::KwdElse,
                 "elif" => Tok::KwdElif,
                 "while" => Tok::KwdWhile,
+                "class" => Tok::KwdClass,
+                "and" => Tok::And,
+                "or" => Tok::Or,
                 _ => Tok::Ident(syntax.to_string())
             })
         }
@@ -134,6 +173,7 @@ fn lex_token(input: &[u8]) -> IResult<&[u8], Tok> {
         lex_ident_and_keyword,
         lex_float,
         lex_integer,
+        lex_string
     ))(input)
 }
 

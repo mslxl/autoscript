@@ -1,4 +1,4 @@
-use crate::frontend::func::ProgramSrcFnElement;
+use crate::frontend::func::{ProgramClassElement, ProgramSrcFnElement};
 
 pub type Block = Vec<StmtNode>;
 
@@ -17,6 +17,7 @@ pub enum ExprNode {
     Integer(i64),
     Float(f64),
     Bool(bool),
+    String(String),
     Ident(AccessedIdent),
     Op(Box<ExprNode>, Op, Box<ExprNode>),
     FnCall(AccessedIdent, Option<Vec<Box<ExprNode>>>),
@@ -121,6 +122,7 @@ pub struct FunctionDefinition {
 pub enum ProgramRootElement {
     Import(String),
     Function(ProgramSrcFnElement),
+    Class(ProgramClassElement)
 }
 
 impl ProgramRootElement {
@@ -130,6 +132,11 @@ impl ProgramRootElement {
             ProgramRootElement::Function(mut e) => {
                 e.header.module = Some(module_name);
                 ProgramRootElement::Function(e)
+            }
+
+            ProgramRootElement::Class(mut e) => {
+                e.module = module_name;
+                ProgramRootElement::Class(e)
             }
         }
     }

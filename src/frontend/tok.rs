@@ -1,14 +1,15 @@
 use std::iter::Enumerate;
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
+
 use nom::{InputIter, InputLength, InputTake, Needed, Slice};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Tok {
-    EOF,
     Int(i64),
     Float(f64),
     Bool(bool),
     Ident(String),
+    String(String),
     // punctuations
     LParen,
     RParen,
@@ -29,6 +30,7 @@ pub enum Tok {
     KwdElse,
     KwdElif,
     KwdWhile,
+    KwdClass,
 
 
     // operator

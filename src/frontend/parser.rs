@@ -6,9 +6,11 @@ use nom::error::{Error, ErrorKind};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
+
 use crate::frontend::ast::{AccessedIdent, Block, ExprNode, Op, ProgramRootElement, StmtNode, TypeInfo, UnaryOp};
-use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
+use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramClassElement, ProgramSrcFnElement};
 use crate::frontend::tok::{Tok, Tokens};
+
 macro_rules! tag_token (
   ($func_name:ident, $tag:expr) => (
       fn $func_name (tokens: Tokens) -> IResult<Tokens, Tokens> {
@@ -55,7 +57,7 @@ tag_token!(else_kwd_tag, Tok::KwdElse);
 tag_token!(while_kwd_tag, Tok::KwdWhile);
 
 tag_token!(import_kwd_tag, Tok::KwdImport);
-
+tag_token!(class_kwd_tag, Tok::KwdClass);
 
 fn parse_ident(input: Tokens) -> IResult<Tokens, String> {
     let (i1, t1) = take(1usize)(input)?;
@@ -104,13 +106,27 @@ fn parse_bool(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     }
 }
 
+
+fn parse_string(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    let (i1, t1) = take(1usize)(input)?;
+    if t1.tok.is_empty() {
+        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+    } else {
+        match t1.tok.first().unwrap() {
+            Tok::String(s) => Ok((i1, Box::new(ExprNode::String(s.clone())))),
+            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+        }
+    }
+}
+
+
 fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
     let fst_match = tuple((lparen_tag, parse_expr, rparen_tag))(input);
     if fst_match.is_ok() {
         let (i1, (_, expr, _)) = fst_match.unwrap();
         Ok((i1, expr))
     } else {
-        alt((parse_fn_call, parse_assign_expr, parse_num, parse_bool, parse_if_expr, parse_ident_expr))(input)
+        alt((parse_fn_call, parse_assign_expr, parse_num, parse_bool, parse_string, parse_if_expr, parse_ident_expr))(input)
     }
 }
 
@@ -337,13 +353,22 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     Ok((i1, func))
 }
 
+fn parse_class(input: Tokens) -> IResult<Tokens, ProgramRootElement>{
+    let (i1, (name, _, _)) = preceded(class_kwd_tag, tuple((parse_ident, lbrace_tag, rbrace_tag)))(input)?;
+    let class = ProgramClassElement{
+        name,
+        module: String::from("")
+    };
+    Ok((i1,ProgramRootElement::Class(class)))
+}
+
 fn parse_import(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     let (i1, (_, module_name, _)) = tuple((import_kwd_tag, parse_ident, opt(semicolon_tag)))(input)?;
     Ok((i1, ProgramRootElement::Import(module_name)))
 }
 
 fn parse_program(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
-    alt((parse_func, parse_import))(input)
+    alt((parse_func, parse_import, parse_class))(input)
 }
 
 pub struct Parser;
