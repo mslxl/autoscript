@@ -1,4 +1,5 @@
 use std::rc::Rc;
+
 use crate::vm::instr::{Instr, Instructions};
 
 pub trait AutoScriptInstrReader{
@@ -33,9 +34,6 @@ impl InstrReader{
             instr: data,
             pc: 0
         }
-    }
-    pub fn is_unfinished(&self) -> bool {
-        return self.pc < self.instr.len() as i32
     }
 
     pub fn reset(&mut self, instr: Rc<Instructions>, pc:i32){

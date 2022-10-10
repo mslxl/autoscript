@@ -1,10 +1,10 @@
 extern crate core;
 
 use std::path::PathBuf;
+
 use clap::Parser;
 
 use crate::frontend::codegen::CodeGen;
-
 use crate::frontend::loader::ScriptFileLoader;
 use crate::vm::builtin::VMBuiltinRegister;
 use crate::vm::vm::AutoScriptVM;
@@ -27,11 +27,14 @@ pub struct VmArgs{
 fn main() {
     let vm_args = VmArgs::parse();
 
-
     let mut loader = ScriptFileLoader::new();
     let file = PathBuf::from(vm_args.file.as_str());
+
+    // load all file into modules obj
     loader.add_file(&file).unwrap();
     let mut modules = loader.unwrap();
+
+
     VMBuiltinRegister::register_prelude(&mut modules);
 
     let mut codegen = CodeGen::new(modules);

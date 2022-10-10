@@ -1,4 +1,4 @@
-use crate::frontend::ast::{Block, TypeInfo};
+use crate::frontend::ast::basic::TypeInfo;
 use crate::vm::builtin::FunctionRustBinding;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -9,7 +9,7 @@ pub enum FunctionOrigin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FunctionHeader {
+pub struct FunctionBasicInfo {
     pub name: String,
     pub module: Option<String>,
     pub param: Option<Vec<(String, TypeInfo)>>,
@@ -17,11 +17,11 @@ pub struct FunctionHeader {
     pub origin: FunctionOrigin,
 }
 
-pub trait FunctionSearchable {
+pub trait FunctionMatcher {
     fn is_executable_by(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> bool;
 }
 
-impl FunctionSearchable for FunctionHeader {
+impl FunctionMatcher for FunctionBasicInfo {
     fn is_executable_by(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> bool {
         if &self.name != name {
             false // Name is not matched!!!
@@ -50,7 +50,12 @@ impl FunctionSearchable for FunctionHeader {
 }
 
 
-impl FunctionHeader {
+impl FunctionBasicInfo {
+    pub fn param_size(&self)->usize {
+        self.param
+            .map(Vec::len)
+            .unwrap_or(0)
+    }
     pub fn signature(&self) -> String {
         let ret = self.ret.as_ref().map(|x| x.to_string()).unwrap_or(String::from("V"));
 
@@ -82,37 +87,9 @@ impl FunctionHeader {
     }
 }
 
-impl ToString for FunctionHeader {
+impl ToString for FunctionBasicInfo {
     fn to_string(&self) -> String {
         self.signature()
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct ProgramSrcFnElement {
-    pub header: FunctionHeader,
-    pub block: Block,
-}
-
-impl FunctionSearchable for ProgramSrcFnElement {
-    fn is_executable_by(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> bool {
-        self.header.is_executable_by(name, param)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ProgramVmFnElement {
-    pub header: FunctionHeader,
-    pub block: Box<dyn FunctionRustBinding>,
-}
-
-impl FunctionSearchable for ProgramVmFnElement {
-    fn is_executable_by(&self, name: &str, param: Option<&Vec<TypeInfo>>) -> bool {
-        self.header.is_executable_by(name, param)
-    }
-}
-#[derive(Debug, Clone, PartialEq)]
-pub struct ProgramClassElement {
-    pub name: String,
-    pub module: String
-}

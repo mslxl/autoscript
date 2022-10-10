@@ -1,21 +1,20 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::vm::slot::Slot;
+
 use crate::vm::builtin::FunctionRustBinding;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
-use crate::vm::thread::Thread;
+use crate::vm::slot::Slot;
+use crate::vm::thread::{Frame, Thread};
 use crate::VmArgs;
 
 use super::const_pool::ConstantPool;
 
-
 pub type FnSignature = String;
 pub struct AutoScriptPrototype {
     // temporary implementations
-    functions: HashMap<FnSignature, Rc<FunctionPrototype>>,
-    vm_functions: HashMap<FnSignature, Box<dyn FunctionRustBinding>>,
+    functions: HashMap<FnSignature, Rc<AutoScriptFunctionInfo>>,
     constant_pool: ConstantPool
 }
 
@@ -23,22 +22,14 @@ impl AutoScriptPrototype {
     pub fn new() -> Self {
         Self {
             functions: HashMap::new(),
-            vm_functions: HashMap::new(),
             constant_pool: vec![].into()
         }
     }
-    pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: FunctionPrototype) {
+    pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: AutoScriptFunctionInfo) {
         self.functions.insert(signature, Rc::new(prototype));
     }
-    pub fn get_function_prototype(&self, signature: &str) -> Option<Rc<FunctionPrototype>> {
+    pub fn get_function_prototype(&self, signature: &str) -> Option<Rc<AutoScriptFunctionInfo>> {
         self.functions.get(signature).map(Rc::clone)
-    }
-
-    pub fn insert_vm_function(&mut self, signature: FnSignature, vm_func: Box<dyn FunctionRustBinding>) {
-        self.vm_functions.insert(signature, vm_func);
-    }
-    pub fn get_vm_function(&self, signature: &str) -> Option<&Box<dyn FunctionRustBinding>> {
-        self.vm_functions.get(signature)
     }
 
     pub fn replace_constant_pool(&mut self, pool: ConstantPool) -> ConstantPool {
@@ -49,15 +40,25 @@ impl AutoScriptPrototype {
     }
 }
 
+pub trait AutoScriptFunction{
+    fn exec(&self, frame: &mut Frame);
+}
 
 #[derive(Debug)]
-pub struct FunctionPrototype {
+pub struct AutoScriptFunctionInfo {
     pub name: String,
     pub signature: String,
     pub local_var_size: usize,
     pub arg_num: usize,
-    pub code: Rc<Instructions>,
+    pub code: Rc<dyn AutoScriptFunction>,
 }
+impl AutoScriptFunction for AutoScriptFunctionInfo{
+    #[inline]
+    fn exec(&self, frame: &mut Frame) {
+        self.code.exec(frame)
+    }
+}
+
 
 pub struct AutoScriptVM {
     pub prototypes: AutoScriptPrototype,

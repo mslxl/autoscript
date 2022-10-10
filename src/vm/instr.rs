@@ -1,8 +1,10 @@
 use std::fmt::{Display, Formatter};
 use std::ops;
 use std::rc::Rc;
+
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
+use crate::vm::vm::AutoScriptFunction;
 
 #[derive(Clone, Debug)]
 pub enum Instr {
@@ -156,14 +158,14 @@ impl Instr {
                 unsafe {
                     let thread = frame.thread.as_mut().unwrap();
                     let vm = thread.vm.as_ref().unwrap();
-                    let func = vm.prototypes.get_vm_function(fn_signature).unwrap();
-                    let args_num = func.get_args().len();
+                    let func = vm.prototypes.get_function_prototype(fn_signature).unwrap();
+                    let args_num = &func.arg_num;
                     let mut args:Vec<Slot> = Vec::new();
                     frame.operand_stack[frame.operand_stack.len() - args_num .. frame.operand_stack.len()].clone_into(&mut args);
-                    for _ in 0.. args_num {
+                    for _ in 0.. *args_num {
                         frame.operand_stack.pop();
                     }
-                    let return_value = func.execute(&args,frame);
+                    let return_value = func.exec(frame);
                     frame.operand_stack.push(return_value.unwrap_or(Slot::Unit))
                 }
             }

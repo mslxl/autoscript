@@ -1,9 +1,9 @@
 use std::ptr::null_mut;
 use std::rc::Rc;
-use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
-use crate::vm::vm::{AutoScriptVM, FunctionPrototype};
-use crate::vm::slot::Slot;
 
+use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
+use crate::vm::slot::Slot;
+use crate::vm::vm::{AutoScriptFunctionInfo, AutoScriptVM};
 
 #[derive(Debug)]
 pub struct Thread {
@@ -49,7 +49,7 @@ impl Thread {
         self.frame_stack.push(frame);
         self.frame_stack.last().unwrap()
     }
-    pub fn push_new_frame(&mut self, slot_size: usize, instr: Rc<FunctionPrototype>) -> &mut Frame {
+    pub fn push_new_frame(&mut self, slot_size: usize, instr: Rc<AutoScriptFunctionInfo>) -> &mut Frame {
         let frame = Frame::new(slot_size, instr, self);
         self.push_frame(frame);
         self.frame_stack.last_mut().unwrap()
@@ -100,12 +100,12 @@ pub struct Frame {
     pub local_vars: LocalVars,
     pub operand_stack: Vec<Slot>,
     pub next_pc: i32,
-    pub function: Rc<FunctionPrototype>,
+    pub function: Rc<AutoScriptFunctionInfo>,
     pub thread: *mut Thread,
 }
 
 impl Frame {
-    fn new(size: usize, instr: Rc<FunctionPrototype>, ptr: &mut Thread) -> Self {
+    fn new(size: usize, instr: Rc<AutoScriptFunctionInfo>, ptr: &mut Thread) -> Self {
         Self {
             local_vars: LocalVars::with_cap(size),
             operand_stack: Vec::new(),

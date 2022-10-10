@@ -1,26 +1,27 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::frontend::ast::{ExprNode, Op, StmtNode, TypeInfo, UnaryOp};
-use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramSrcFnElement};
+use crate::frontend::ast::basic::{AstExprNode, AstStmtNode, Op, TypeInfo, UnaryOp};
+use crate::frontend::ast::element::AstProgramFunctionImplElement;
+use crate::frontend::ast::func::{FunctionBasicInfo, FunctionOrigin};
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
-use crate::frontend::module_man::ProgramModule;
+use crate::frontend::module_man::ProgramModuleDecl;
 use crate::vm::builtin::builtin_class::ObjStr;
 use crate::vm::instr::{Instr, Instructions};
 use crate::vm::mem::Obj;
 use crate::vm::slot::Slot;
-use crate::vm::vm::{AutoScriptPrototype, FunctionPrototype};
+use crate::vm::vm::{AutoScriptFunctionInfo, AutoScriptPrototype};
 
 use super::gen_info::ConstantPoolBuilder;
 
 pub struct CodeGen {
     env: Env,
-    modules: HashMap<String, ProgramModule>,
+    modules: HashMap<String, ProgramModuleDecl>,
     const_pool_builder: ConstantPoolBuilder,
 }
 
 impl CodeGen {
-    pub fn new(modules: HashMap<String, ProgramModule>) -> Self {
+    pub fn new(modules: HashMap<String, ProgramModuleDecl>) -> Self {
         Self {
             env: Env::default(),
             modules,
@@ -34,7 +35,7 @@ impl CodeGen {
         cur_module: &str,
         access_module: Option<&str>,
         param: Option<&Vec<TypeInfo>>,
-    ) -> Option<&FunctionHeader> {
+    ) -> Option<&FunctionBasicInfo> {
         let module_name = access_module.unwrap_or(cur_module);
         let module = self.modules.get(module_name).unwrap();
         let prelude = self.modules.get("prelude").unwrap();
@@ -49,9 +50,9 @@ impl CodeGen {
 
     fn translate_function(
         &mut self,
-        program: &ProgramSrcFnElement,
+        program: &AstProgramFunctionImplElement,
         cur_module: &str,
-    ) -> FunctionPrototype {
+    ) -> AutoScriptFunctionInfo {
         self.env.push_scope();
         let arg_num = if let Some(ref param) = program.header.param {
             for i in param {
@@ -72,7 +73,7 @@ impl CodeGen {
         let instr: Instructions = self.translate_block(&program.block, cur_module, &program.header);
         let table_size = self.env.max_val_table_size;
         self.env.pop_scope();
-        FunctionPrototype {
+        AutoScriptFunctionInfo {
             name: program.header.name.clone(),
             signature: program.header.signature(),
             local_var_size: table_size,
@@ -83,15 +84,15 @@ impl CodeGen {
 
     fn translate_stmt(
         &mut self,
-        stmt: &StmtNode,
+        stmt: &AstStmtNode,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> Instructions {
         match stmt {
-            StmtNode::ExprStmt(expr) => {
+            AstStmtNode::ExprStmt(expr) => {
                 self.translate_expr(expr, cur_module, header).instr + vec![Instr::Pop].into()
             }
-            StmtNode::RetStmt(expr) => match expr {
+            AstStmtNode::RetStmt(expr) => match expr {
                 Some(expr) => {
                     let expr_info = self.translate_expr(expr, cur_module, header);
                     assert_eq!(
@@ -109,7 +110,7 @@ impl CodeGen {
                     vec![Instr::Return].into()
                 }
             },
-            StmtNode::VarStmt(name, ty_expect, is_not_mut, expr) => {
+            AstStmtNode::VarStmt(name, ty_expect, is_not_mut, expr) => {
                 let expr_ret = self.translate_expr(expr, cur_module, header);
                 let ty_expect = ty_expect.clone().map(TypeInfo::from);
                 let (convert_instr, ty) = if let Some(ty_expect) = ty_expect {
@@ -124,7 +125,7 @@ impl CodeGen {
 
                 expr_ret.instr + convert_instr + vec![Instr::Store(slot_index)].into()
             }
-            StmtNode::WhileStmt(cond, block) => {
+            AstStmtNode::WhileStmt(cond, block) => {
                 let cond = self.translate_expr(cond, cur_module, header);
                 assert_eq!(cond.ty, TypeInfo::Bool);
 
@@ -141,9 +142,9 @@ impl CodeGen {
 
     fn translate_block(
         &mut self,
-        block: &[StmtNode],
+        block: &[AstStmtNode],
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> Instructions {
         self.env.push_scope();
         let instr = if block.is_empty() {
@@ -205,11 +206,11 @@ impl CodeGen {
 
     fn translate_expr_op(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::Op(left, op, right) = expr.as_ref() {
+        if let AstExprNode::Op(left, op, right) = expr.as_ref() {
             let mut left_expr = self.translate_expr(left, cur_module, header);
             let mut right_expr = self.translate_expr(right, cur_module, header);
             if left_expr.ty == TypeInfo::Int && right_expr.ty == TypeInfo::Int {
@@ -337,11 +338,11 @@ impl CodeGen {
 
     fn translate_expr_unary(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::UnaryOp(op, expr) = expr.as_ref() {
+        if let AstExprNode::UnaryOp(op, expr) = expr.as_ref() {
             let sub_expr = self.translate_expr(expr, cur_module, header);
             match op {
                 UnaryOp::Plus => match sub_expr.ty {
@@ -371,11 +372,11 @@ impl CodeGen {
 
     fn translate_expr_fncall(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::FnCall(fn_id, param) = expr.as_ref() {
+        if let AstExprNode::FnCall(fn_id, param) = expr.as_ref() {
             let args: Option<Vec<GenInfo>> = if let Some(exprs) = param {
                 Some(
                     exprs
@@ -452,11 +453,11 @@ impl CodeGen {
 
     fn translate_expr_ifexpr(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::IfExpr(cond, block, else_branch) = expr.as_ref() {
+        if let AstExprNode::IfExpr(cond, block, else_branch) = expr.as_ref() {
             let cond_gen = self.translate_expr(cond, cur_module, header);
             assert_eq!(cond_gen.ty, TypeInfo::Bool);
             self.env.push_scope();
@@ -491,11 +492,11 @@ impl CodeGen {
 
     fn translate_expr_blockexpr(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::BlockExpr(block) = expr.as_ref() {
+        if let AstExprNode::BlockExpr(block) = expr.as_ref() {
             if block.is_empty() {
                 GenInfo::new(vec![].into(), TypeInfo::Unit)
             } else {
@@ -503,7 +504,7 @@ impl CodeGen {
                 let head_instr = self.translate_block(head, cur_module, header);
                 let last_stmt = last.last().unwrap();
                 match last_stmt {
-                    StmtNode::ExprStmt(expr) => {
+                    AstStmtNode::ExprStmt(expr) => {
                         let last = self.translate_expr(expr, cur_module, header);
                         GenInfo::new(head_instr + last.instr, last.ty)
                     }
@@ -520,11 +521,11 @@ impl CodeGen {
 
     fn translate_expr_assign(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
-        if let ExprNode::AssignExpr(id, expr) = expr.as_ref() {
+        if let AstExprNode::AssignExpr(id, expr) = expr.as_ref() {
             let expr = self.translate_expr(expr, cur_module, header);
             let info = self
                 .env
@@ -542,21 +543,21 @@ impl CodeGen {
 
     fn translate_expr(
         &mut self,
-        expr: &Box<ExprNode>,
+        expr: &Box<AstExprNode>,
         cur_module: &str,
-        header: &FunctionHeader,
+        header: &FunctionBasicInfo,
     ) -> GenInfo {
         match expr.as_ref() {
-            ExprNode::Integer(integer) => {
+            AstExprNode::Integer(integer) => {
                 GenInfo::new(vec![Instr::IPush(*integer)].into(), TypeInfo::Int)
             }
-            ExprNode::Float(float) => {
+            AstExprNode::Float(float) => {
                 GenInfo::new(vec![Instr::FPush(*float)].into(), TypeInfo::Float)
             }
-            ExprNode::Bool(boolean) => {
+            AstExprNode::Bool(boolean) => {
                 GenInfo::new(vec![Instr::BPush(*boolean)].into(), TypeInfo::Bool)
             }
-            ExprNode::String(s) => {
+            AstExprNode::String(s) => {
                 let const_id = if let Some(id) = self.const_pool_builder.find(s) {
                     id
                 } else {
@@ -570,9 +571,9 @@ impl CodeGen {
                     TypeInfo::TypeSym(String::from("String")),
                 )
             }
-            ExprNode::Op(_, _, _) => self.translate_expr_op(expr, cur_module, header),
-            ExprNode::UnaryOp(_, _) => self.translate_expr_unary(expr, cur_module, header),
-            ExprNode::Ident(id) => {
+            AstExprNode::Op(_, _, _) => self.translate_expr_op(expr, cur_module, header),
+            AstExprNode::UnaryOp(_, _) => self.translate_expr_unary(expr, cur_module, header),
+            AstExprNode::Ident(id) => {
                 assert_eq!(id.len(), 1);
                 let ident_info = self.env.val_lookup(&id.first().unwrap()).unwrap();
                 GenInfo::new(
@@ -580,10 +581,10 @@ impl CodeGen {
                     ident_info.ty.clone(),
                 )
             }
-            ExprNode::FnCall(_, _) => self.translate_expr_fncall(expr, cur_module, header),
-            ExprNode::IfExpr(_, _, _) => self.translate_expr_ifexpr(expr, cur_module, header),
-            ExprNode::BlockExpr(_) => self.translate_expr_blockexpr(expr, cur_module, header),
-            ExprNode::AssignExpr(_, _) => self.translate_expr_assign(expr, cur_module, header),
+            AstExprNode::FnCall(_, _) => self.translate_expr_fncall(expr, cur_module, header),
+            AstExprNode::IfExpr(_, _, _) => self.translate_expr_ifexpr(expr, cur_module, header),
+            AstExprNode::BlockExpr(_) => self.translate_expr_blockexpr(expr, cur_module, header),
+            AstExprNode::AssignExpr(_, _) => self.translate_expr_assign(expr, cur_module, header),
         }
     }
 }

@@ -1,11 +1,12 @@
-use crate::frontend::ast::TypeInfo;
+use std::cmp::max;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+
+use crate::frontend::ast::basic::TypeInfo;
 use crate::vm::const_pool::ConstantPool;
 use crate::vm::instr::Instructions;
 use crate::vm::slot::Slot;
-use std::cmp::max;
-use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hasher, Hash};
 
 pub struct GenInfo {
     pub instr: Instructions,

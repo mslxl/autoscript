@@ -1,31 +1,28 @@
-use crate::frontend::func::{ProgramClassElement, ProgramSrcFnElement};
-
-pub type Block = Vec<StmtNode>;
+pub type StmtBlock = Vec<AstStmtNode>;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum StmtNode {
-    ExprStmt(Box<ExprNode>),
-    RetStmt(Option<Box<ExprNode>>),
-    VarStmt(String, Option<TypeInfo>, bool, Box<ExprNode>),
-    WhileStmt(Box<ExprNode>, Block)
+pub enum AstStmtNode {
+    ExprStmt(Box<AstExprNode>),
+    RetStmt(Option<Box<AstExprNode>>),
+    VarStmt(String, Option<TypeInfo>, bool, Box<AstExprNode>),
+    WhileStmt(Box<AstExprNode>, StmtBlock)
 }
 
 pub type AccessedIdent = Vec<String>;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ExprNode {
+pub enum AstExprNode {
     Integer(i64),
     Float(f64),
     Bool(bool),
     String(String),
     Ident(AccessedIdent),
-    Op(Box<ExprNode>, Op, Box<ExprNode>),
-    FnCall(AccessedIdent, Option<Vec<Box<ExprNode>>>),
-    UnaryOp(UnaryOp, Box<ExprNode>),
-    BlockExpr(Block),
-    AssignExpr(String, Box<ExprNode>),
-    //last stmt is return value
-    IfExpr(Box<ExprNode>, Box<ExprNode>, Option<Box<ExprNode>>),
+    Op(Box<AstExprNode>, Op, Box<AstExprNode>),
+    FnCall(AccessedIdent, Option<Vec<Box<AstExprNode>>>),
+    UnaryOp(UnaryOp, Box<AstExprNode>),
+    BlockExpr(StmtBlock),
+    AssignExpr(String, Box<AstExprNode>),
+    IfExpr(Box<AstExprNode>, Box<AstExprNode>, Option<Box<AstExprNode>>),//last stmt is return value
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -63,7 +60,6 @@ pub enum TypeInfo {
     TypeSym(String),
 }
 
-
 impl ToString for TypeInfo {
     fn to_string(&self) -> String {
         match self {
@@ -76,7 +72,6 @@ impl ToString for TypeInfo {
         }
     }
 }
-
 
 impl TypeInfo {
     pub fn is_can_convert_to(&self, target: &TypeInfo) -> bool {
@@ -106,38 +101,6 @@ impl From<&str> for TypeInfo {
             "bool" => TypeInfo::Bool,
             "unit" => TypeInfo::Unit,
             oth => TypeInfo::TypeSym(String::from(oth))
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct FunctionDefinition {
-    pub name: String,
-    pub private: bool,
-    pub args: Vec<(String, String)>,
-    pub stmts: Vec<StmtNode>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ProgramRootElement {
-    Import(String),
-    Function(ProgramSrcFnElement),
-    Class(ProgramClassElement)
-}
-
-impl ProgramRootElement {
-    pub fn modify_to_module(self, module_name: String) -> Self {
-        match self {
-            ProgramRootElement::Import(_) => self,
-            ProgramRootElement::Function(mut e) => {
-                e.header.module = Some(module_name);
-                ProgramRootElement::Function(e)
-            }
-
-            ProgramRootElement::Class(mut e) => {
-                e.module = module_name;
-                ProgramRootElement::Class(e)
-            }
         }
     }
 }

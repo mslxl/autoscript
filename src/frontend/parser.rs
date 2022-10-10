@@ -7,8 +7,9 @@ use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 
-use crate::frontend::ast::{AccessedIdent, Block, ExprNode, Op, ProgramRootElement, StmtNode, TypeInfo, UnaryOp};
-use crate::frontend::func::{FunctionHeader, FunctionOrigin, ProgramClassElement, ProgramSrcFnElement};
+use crate::frontend::ast::basic::{AccessedIdent, AstExprNode, AstStmtNode, Op, StmtBlock, TypeInfo, UnaryOp};
+use crate::frontend::ast::element::{AstProgramFunctionImplElement, ProgramClassElement, ProgramElement};
+use crate::frontend::ast::func::{FunctionBasicInfo, FunctionOrigin};
 use crate::frontend::tok::{Tok, Tokens};
 
 macro_rules! tag_token (
@@ -77,50 +78,50 @@ fn parse_accessed_ident(input: Tokens) -> IResult<Tokens, AccessedIdent> {
     Ok((i1, idents))
 }
 
-fn parse_ident_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    map(parse_accessed_ident, |tok| Box::new(ExprNode::Ident(tok)))(input)
+fn parse_ident_expr(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
+    map(parse_accessed_ident, |tok| Box::new(AstExprNode::Ident(tok)))(input)
 }
 
-fn parse_num(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_num(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, t1) = take(1usize)(input)?;
     if t1.tok.is_empty() {
         Err(Err::Error(Error::new(input, ErrorKind::Tag)))
     } else {
         match t1.tok.first().unwrap() {
-            Tok::Int(num) => Ok((i1, Box::new(ExprNode::Integer(*num)))),
-            Tok::Float(num) => Ok((i1, Box::new(ExprNode::Float(*num)))),
+            Tok::Int(num) => Ok((i1, Box::new(AstExprNode::Integer(*num)))),
+            Tok::Float(num) => Ok((i1, Box::new(AstExprNode::Float(*num)))),
             _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
         }
     }
 }
 
-fn parse_bool(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_bool(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, t1) = take(1usize)(input)?;
     if t1.tok.is_empty() {
         Err(Err::Error(Error::new(input, ErrorKind::Tag)))
     } else {
         match t1.tok.first().unwrap() {
-            Tok::Bool(b) => Ok((i1, Box::new(ExprNode::Bool(*b)))),
-            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
-        }
-    }
-}
-
-
-fn parse_string(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    let (i1, t1) = take(1usize)(input)?;
-    if t1.tok.is_empty() {
-        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
-    } else {
-        match t1.tok.first().unwrap() {
-            Tok::String(s) => Ok((i1, Box::new(ExprNode::String(s.clone())))),
+            Tok::Bool(b) => Ok((i1, Box::new(AstExprNode::Bool(*b)))),
             _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
         }
     }
 }
 
 
-fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_string(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
+    let (i1, t1) = take(1usize)(input)?;
+    if t1.tok.is_empty() {
+        Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+    } else {
+        match t1.tok.first().unwrap() {
+            Tok::String(s) => Ok((i1, Box::new(AstExprNode::String(s.clone())))),
+            _ => Err(Err::Error(Error::new(input, ErrorKind::Tag)))
+        }
+    }
+}
+
+
+fn parse_primary(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let fst_match = tuple((lparen_tag, parse_expr, rparen_tag))(input);
     if fst_match.is_ok() {
         let (i1, (_, expr, _)) = fst_match.unwrap();
@@ -131,7 +132,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
 }
 
 
-fn parse_unary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_unary(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let fst_match = pair(alt((plus_tag, minus_tag, not_tag)), parse_unary)(input);
     if fst_match.is_ok() {
         let (i1, (tokens, expr)) = fst_match.unwrap();
@@ -141,13 +142,13 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Not => UnaryOp::Not,
             _ => unreachable!()
         };
-        Ok((i1, Box::new(ExprNode::UnaryOp(op, expr))))
+        Ok((i1, Box::new(AstExprNode::UnaryOp(op, expr))))
     } else {
         parse_primary(input)
     }
 }
 
-fn parse_mul(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_mul(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, (mut lhs, seq)) = pair(parse_unary, many0(pair(alt((mul_tag, div_tag, rem_tag)), parse_unary)))(input)?;
     for (tokens, rhs) in seq {
         let op = match tokens.tok.first().unwrap() {
@@ -156,12 +157,12 @@ fn parse_mul(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Rem => Op::Rem,
             _ => unreachable!()
         };
-        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+        lhs = Box::new(AstExprNode::Op(lhs, op, rhs))
     }
     Ok((i1, lhs))
 }
 
-fn parse_add(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_add(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, (mut lhs, seq)) = pair(parse_mul, many0(pair(alt((plus_tag, minus_tag)), parse_mul)))(input)?;
     for (tokens, rhs) in seq {
         let op = match tokens.tok.first().unwrap() {
@@ -169,12 +170,12 @@ fn parse_add(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Minus => Op::Sub,
             _ => unreachable!()
         };
-        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+        lhs = Box::new(AstExprNode::Op(lhs, op, rhs))
     }
     Ok((i1, lhs))
 }
 
-fn parse_relational(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_relational(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let fst_match = tuple((parse_add, alt((le_tag, ge_tag, lt_tag, gt_tag)), parse_add))(input);
     if fst_match.is_ok() {
         let (i1, (lhs, tokens, rhs)) = fst_match.unwrap();
@@ -185,13 +186,13 @@ fn parse_relational(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Ge => Op::Ge,
             _ => unreachable!()
         };
-        Ok((i1, Box::new(ExprNode::Op(lhs, op, rhs))))
+        Ok((i1, Box::new(AstExprNode::Op(lhs, op, rhs))))
     } else {
         parse_add(input)
     }
 }
 
-fn parse_equality(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_equality(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let fst_match = tuple((parse_relational, alt((eq_tag, ne_tag)), parse_relational))(input);
     if fst_match.is_ok() {
         let (i1, (lhs, tokens, rhs)) = fst_match.unwrap();
@@ -200,13 +201,13 @@ fn parse_equality(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Eq => Op::Eq,
             _ => unreachable!()
         };
-        Ok((i1, Box::new(ExprNode::Op(lhs, op, rhs))))
+        Ok((i1, Box::new(AstExprNode::Op(lhs, op, rhs))))
     } else {
         parse_relational(input)
     }
 }
 
-fn parse_logic(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_logic(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, (mut lhs, seq)) = pair(parse_equality, many0(pair(alt((and_tag, or_tag)), parse_equality)))(input)?;
     for (tokens, rhs) in seq {
         let op = match tokens.tok.first().unwrap() {
@@ -214,36 +215,36 @@ fn parse_logic(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
             Tok::Or => Op::Or,
             _ => unreachable!()
         };
-        lhs = Box::new(ExprNode::Op(lhs, op, rhs))
+        lhs = Box::new(AstExprNode::Op(lhs, op, rhs))
     }
     Ok((i1, lhs))
 }
 
-fn parse_comma_expr(input: Tokens) -> IResult<Tokens, Vec<Box<ExprNode>>> {
+fn parse_comma_expr(input: Tokens) -> IResult<Tokens, Vec<Box<AstExprNode>>> {
     let (i1, (expr, mut exprs)) = pair(parse_expr, many0(preceded(comma_tag, parse_expr)))(input)?;
     exprs.insert(0, expr);
     Ok((i1, exprs))
 }
 
-fn parse_fn_call(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_fn_call(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, (fn_name, _, args, _)) = tuple((parse_accessed_ident, lparen_tag, opt(parse_comma_expr), rparen_tag))(input)?;
-    let expr = Box::new(ExprNode::FnCall(fn_name, args));
+    let expr = Box::new(AstExprNode::FnCall(fn_name, args));
     Ok((i1, expr))
 }
 
-fn parse_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_expr(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     parse_logic(input)
 }
 
-fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
-    fn parse_else(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
+    fn parse_else(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
         preceded(
             else_kwd_tag,
             map(
                 parse_block_stmt,
-                |x| Box::new(ExprNode::BlockExpr(x))))(input)
+                |x| Box::new(AstExprNode::BlockExpr(x))))(input)
     }
-    fn parse_elif(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+    fn parse_elif(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
         let (i1, (_, cond, code)) = tuple(
             (elif_kwd_tag,
              parse_expr,
@@ -251,31 +252,31 @@ fn parse_if_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
         let ret = opt(alt((parse_elif, parse_else)))(i1);
         if let Ok((tok, els)) = ret {
             Ok((tok, Box::new(
-                ExprNode::IfExpr(
+                AstExprNode::IfExpr(
                     cond,
-                    Box::new(ExprNode::BlockExpr(code)),
+                    Box::new(AstExprNode::BlockExpr(code)),
                     els))))
         } else {
             Ok((i1, Box::new(
-                ExprNode::IfExpr(
+                AstExprNode::IfExpr(
                     cond,
-                    Box::new(ExprNode::BlockExpr(code)),
+                    Box::new(AstExprNode::BlockExpr(code)),
                     None))))
         }
     }
 
     let (i1, (_, cond, code, els)) = tuple((if_kwd_tag, parse_expr, parse_block_stmt, opt(alt((parse_elif, parse_else)))))(input)?;
-    let expr = Box::new(ExprNode::IfExpr(cond, Box::new(ExprNode::BlockExpr(code)), els));
+    let expr = Box::new(AstExprNode::IfExpr(cond, Box::new(AstExprNode::BlockExpr(code)), els));
     Ok((i1, expr))
 }
 
-fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, AstStmtNode> {
     map(terminated(parse_expr, opt(semicolon_tag)), |expr| {
-        StmtNode::ExprStmt(expr)
+        AstStmtNode::ExprStmt(expr)
     })(input)
 }
 
-fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+fn parse_var_stmt(input: Tokens) -> IResult<Tokens, AstStmtNode> {
     let (i1, (kwd, id, ty, _, expr, _)) = tuple((
         alt((val_kwd_tag, var_kwd_tag)),
         parse_ident,
@@ -284,30 +285,30 @@ fn parse_var_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
         parse_expr,
         opt(semicolon_tag)))(input)?;
     let is_const = kwd.tok.first().unwrap() == &Tok::KwdVal;
-    let stmt = StmtNode::VarStmt(id, ty.map(TypeInfo::from), is_const, expr);
+    let stmt = AstStmtNode::VarStmt(id, ty.map(TypeInfo::from), is_const, expr);
     Ok((i1, stmt))
 }
 
-fn parse_assign_expr(input: Tokens) -> IResult<Tokens, Box<ExprNode>> {
+fn parse_assign_expr(input: Tokens) -> IResult<Tokens, Box<AstExprNode>> {
     let (i1, (id, _, expr)) = tuple((parse_ident, assign_tag, parse_expr))(input)?;
-    let expr = Box::new(ExprNode::AssignExpr(id, expr));
+    let expr = Box::new(AstExprNode::AssignExpr(id, expr));
     Ok((i1, expr))
 }
 
 
-fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+fn parse_ret_stmt(input: Tokens) -> IResult<Tokens, AstStmtNode> {
     map(delimited(ret_kwd_tag, opt(parse_expr), opt(semicolon_tag)), |expr| {
-        StmtNode::RetStmt(expr)
+        AstStmtNode::RetStmt(expr)
     })(input)
 }
 
-fn parse_while_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+fn parse_while_stmt(input: Tokens) -> IResult<Tokens, AstStmtNode> {
     let (i1, (cond, stmt)) = preceded(while_kwd_tag, pair(parse_expr, parse_block_stmt))(input)?;
 
-    Ok((i1, StmtNode::WhileStmt(cond, stmt)))
+    Ok((i1, AstStmtNode::WhileStmt(cond, stmt)))
 }
 
-fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
+fn parse_stmt(input: Tokens) -> IResult<Tokens, AstStmtNode> {
     alt((
         parse_ret_stmt,
         parse_var_stmt,
@@ -315,7 +316,7 @@ fn parse_stmt(input: Tokens) -> IResult<Tokens, StmtNode> {
         parse_expr_stmt, ))(input)
 }
 
-fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Block> {
+fn parse_block_stmt(input: Tokens) -> IResult<Tokens, StmtBlock> {
     delimited(lbrace_tag, many0(parse_stmt), rbrace_tag)(input)
 }
 
@@ -328,7 +329,7 @@ fn parse_func_params(input: Tokens) -> IResult<Tokens, Vec<(String, TypeInfo)>> 
     Ok((i1, params))
 }
 
-fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
+fn parse_func(input: Tokens) -> IResult<Tokens, ProgramElement> {
     let (i1, (_, id, _, params, _, ret_value, block)) = tuple((
         fn_kwd_tag,
         parse_ident,
@@ -337,8 +338,8 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
         rparen_tag,
         opt(pair(rarrow_tag, parse_ident)),
         parse_block_stmt))(input)?;
-    let func = ProgramRootElement::Function(ProgramSrcFnElement {
-        header: FunctionHeader {
+    let func = ProgramElement::Function(AstProgramFunctionImplElement {
+        header: FunctionBasicInfo {
             name: id,
             param: params,
             module: None,
@@ -353,32 +354,32 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
     Ok((i1, func))
 }
 
-fn parse_class(input: Tokens) -> IResult<Tokens, ProgramRootElement>{
+fn parse_class(input: Tokens) -> IResult<Tokens, ProgramElement>{
     let (i1, (name, _, _)) = preceded(class_kwd_tag, tuple((parse_ident, lbrace_tag, rbrace_tag)))(input)?;
     let class = ProgramClassElement{
         name,
         module: String::from("")
     };
-    Ok((i1,ProgramRootElement::Class(class)))
+    Ok((i1, ProgramElement::Class(class)))
 }
 
-fn parse_import(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
+fn parse_import(input: Tokens) -> IResult<Tokens, ProgramElement> {
     let (i1, (_, module_name, _)) = tuple((import_kwd_tag, parse_ident, opt(semicolon_tag)))(input)?;
-    Ok((i1, ProgramRootElement::Import(module_name)))
+    Ok((i1, ProgramElement::Import(module_name)))
 }
 
-fn parse_program(input: Tokens) -> IResult<Tokens, ProgramRootElement> {
+fn parse_program(input: Tokens) -> IResult<Tokens, ProgramElement> {
     alt((parse_func, parse_import, parse_class))(input)
 }
 
 pub struct Parser;
 
 impl Parser {
-    pub fn parse(tokens: Tokens, module_name: &str) -> Vec<ProgramRootElement> {
+    pub fn parse(tokens: Tokens, module_name: &str) -> Vec<ProgramElement> {
         let (i1, program) = many0(parse_program)(tokens).unwrap();
         assert!(i1.tok.is_empty());
         program.into_iter()
-            .map(|e| e.modify_to_module(module_name.to_string()))
+            .map(|e| e.set_module(module_name.to_string()))
             .collect()
     }
 }

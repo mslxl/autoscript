@@ -1,9 +1,9 @@
 use std::fmt::Debug;
-use crate::frontend::ast::TypeInfo;
+
+use crate::frontend::ast::basic::TypeInfo;
 use crate::vm::builtin::FunctionRustBinding;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
-
 
 #[derive(Debug, Clone)]
 pub(crate) struct FnPrint;
