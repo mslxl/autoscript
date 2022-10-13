@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::slot::Slot;
-use crate::vm::vm::{AutoScriptFunctionInfo, AutoScriptVM};
+use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionEvaluator, AutoScriptVM};
 
 #[derive(Debug)]
 pub struct Thread {
@@ -49,7 +49,7 @@ impl Thread {
         self.frame_stack.push(frame);
         self.frame_stack.last().unwrap()
     }
-    pub fn push_new_frame(&mut self, slot_size: usize, instr: Rc<AutoScriptFunctionInfo>) -> &mut Frame {
+    pub fn push_new_frame(&mut self, slot_size: usize, instr: Rc<AutoScriptFunction>) -> &mut Frame {
         let frame = Frame::new(slot_size, instr, self);
         self.push_frame(frame);
         self.frame_stack.last_mut().unwrap()
@@ -62,50 +62,37 @@ impl Thread {
         self.frame_stack.last().unwrap()
     }
 
-    fn loop_interpret(&mut self) {
-        let mut instr_reader = InstrReader::new(Rc::clone(&self.current_frame_mut().function.code));
-        loop {
-            let frame = self.current_frame();
-            let pc = frame.next_pc;
-            self.pc = pc;
-
-            let mut frame = self.current_frame_mut();
-            // decode
-            instr_reader.reset(Rc::clone(&frame.function.code), pc);
-            let instr = instr_reader.read_instr();
-            frame.next_pc = instr_reader.pc();
-            instr.execute(frame);
-
-
-            if self.frame_stack.is_empty() {
-                break;
-            }
-        }
-    }
-
-
-    pub fn start(&mut self,function_signature: &str) {
+    pub fn start(&mut self, function_signature: &str) {
         let vm: &mut AutoScriptVM = unsafe { &mut *self.vm };
         let function = vm.prototypes.get_function_prototype(function_signature).unwrap();
         self.push_new_frame(function.local_var_size, Rc::clone(&function));
-        self.loop_interpret();
+
+
+        let frame = self.current_frame();
+
+        let start_function = Rc::clone(&frame.function);
+        let frame = self.current_frame_mut();
+        start_function.exec(frame);
     }
+
     pub fn pc(&self) -> i32 {
         self.pc
     }
+    pub fn set_pc(&mut self, pc: i32) {
+        self.pc = pc;
+    }
 }
-
 #[derive(Debug)]
 pub struct Frame {
     pub local_vars: LocalVars,
     pub operand_stack: Vec<Slot>,
     pub next_pc: i32,
-    pub function: Rc<AutoScriptFunctionInfo>,
+    pub function: Rc<AutoScriptFunction>,
     pub thread: *mut Thread,
 }
 
 impl Frame {
-    fn new(size: usize, instr: Rc<AutoScriptFunctionInfo>, ptr: &mut Thread) -> Self {
+    fn new(size: usize, instr: Rc<AutoScriptFunction>, ptr: &mut Thread) -> Self {
         Self {
             local_vars: LocalVars::with_cap(size),
             operand_stack: Vec::new(),

@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crate::frontend::ast::basic::TypeInfo;
 use crate::frontend::ast::element::AstProgramFunctionImplElement;
-use crate::frontend::ast::func::FunctionBasicInfo;
+use crate::frontend::ast::func::{FunctionBasicInfo, FunctionMatcher};
 use crate::vm::builtin::ProgramVmFnElement;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ProgramModuleDecl {
     pub function: HashMap<String, Vec<AstProgramFunctionImplElement>>,
     pub vm_function: HashMap<String, Vec<ProgramVmFnElement>>,

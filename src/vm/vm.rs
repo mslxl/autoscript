@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -12,9 +13,10 @@ use crate::VmArgs;
 use super::const_pool::ConstantPool;
 
 pub type FnSignature = String;
+#[derive(Debug)]
 pub struct AutoScriptPrototype {
     // temporary implementations
-    functions: HashMap<FnSignature, Rc<AutoScriptFunctionInfo>>,
+    functions: HashMap<FnSignature, Rc<AutoScriptFunction>>,
     constant_pool: ConstantPool
 }
 
@@ -25,10 +27,10 @@ impl AutoScriptPrototype {
             constant_pool: vec![].into()
         }
     }
-    pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: AutoScriptFunctionInfo) {
+    pub fn insert_function_prototype(&mut self, signature: FnSignature, prototype: AutoScriptFunction) {
         self.functions.insert(signature, Rc::new(prototype));
     }
-    pub fn get_function_prototype(&self, signature: &str) -> Option<Rc<AutoScriptFunctionInfo>> {
+    pub fn get_function_prototype(&self, signature: &str) -> Option<Rc<AutoScriptFunction>> {
         self.functions.get(signature).map(Rc::clone)
     }
 
@@ -40,19 +42,19 @@ impl AutoScriptPrototype {
     }
 }
 
-pub trait AutoScriptFunction{
+pub trait AutoScriptFunctionEvaluator : Debug{
     fn exec(&self, frame: &mut Frame);
 }
-
 #[derive(Debug)]
-pub struct AutoScriptFunctionInfo {
+pub struct AutoScriptFunction {
     pub name: String,
     pub signature: String,
     pub local_var_size: usize,
     pub arg_num: usize,
-    pub code: Rc<dyn AutoScriptFunction>,
+    pub code: Rc<dyn AutoScriptFunctionEvaluator>,
 }
-impl AutoScriptFunction for AutoScriptFunctionInfo{
+
+impl AutoScriptFunctionEvaluator for AutoScriptFunction {
     #[inline]
     fn exec(&self, frame: &mut Frame) {
         self.code.exec(frame)

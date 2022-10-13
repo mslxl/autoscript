@@ -4,7 +4,6 @@ use crate::vm::builtin::FunctionRustBinding;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FunctionOrigin {
     Source,
-    VM,
     FFI,
 }
 
@@ -53,6 +52,7 @@ impl FunctionMatcher for FunctionBasicInfo {
 impl FunctionBasicInfo {
     pub fn param_size(&self)->usize {
         self.param
+            .as_ref()
             .map(Vec::len)
             .unwrap_or(0)
     }
@@ -79,7 +79,6 @@ impl FunctionBasicInfo {
 
         let origin_flag = match self.origin {
             FunctionOrigin::Source => "",
-            FunctionOrigin::VM => "~",
             FunctionOrigin::FFI => "#"
         };
 

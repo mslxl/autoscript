@@ -1,16 +1,21 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use nom::Parser;
+
 use crate::frontend::ast::basic::{AstExprNode, AstStmtNode, Op, TypeInfo, UnaryOp};
 use crate::frontend::ast::element::AstProgramFunctionImplElement;
 use crate::frontend::ast::func::{FunctionBasicInfo, FunctionOrigin};
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
 use crate::frontend::module_man::ProgramModuleDecl;
 use crate::vm::builtin::builtin_class::ObjStr;
-use crate::vm::instr::{Instr, Instructions};
+use crate::vm::builtin::ProgramVmFnElement;
+use crate::vm::instr::{AutoScriptInstrFunction, Instr, Instructions};
+use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::mem::Obj;
 use crate::vm::slot::Slot;
-use crate::vm::vm::{AutoScriptFunctionInfo, AutoScriptPrototype};
+use crate::vm::thread::Frame;
+use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionEvaluator, AutoScriptPrototype};
 
 use super::gen_info::ConstantPoolBuilder;
 
@@ -19,6 +24,7 @@ pub struct CodeGen {
     modules: HashMap<String, ProgramModuleDecl>,
     const_pool_builder: ConstantPoolBuilder,
 }
+
 
 impl CodeGen {
     pub fn new(modules: HashMap<String, ProgramModuleDecl>) -> Self {
@@ -52,7 +58,7 @@ impl CodeGen {
         &mut self,
         program: &AstProgramFunctionImplElement,
         cur_module: &str,
-    ) -> AutoScriptFunctionInfo {
+    ) -> AutoScriptFunction {
         self.env.push_scope();
         let arg_num = if let Some(ref param) = program.header.param {
             for i in param {
@@ -73,12 +79,12 @@ impl CodeGen {
         let instr: Instructions = self.translate_block(&program.block, cur_module, &program.header);
         let table_size = self.env.max_val_table_size;
         self.env.pop_scope();
-        AutoScriptFunctionInfo {
+        AutoScriptFunction {
             name: program.header.name.clone(),
             signature: program.header.signature(),
             local_var_size: table_size,
             arg_num,
-            code: Rc::new(instr),
+            code: Rc::new(AutoScriptInstrFunction::new(Rc::new(instr))),
         }
     }
 
@@ -90,7 +96,9 @@ impl CodeGen {
     ) -> Instructions {
         match stmt {
             AstStmtNode::ExprStmt(expr) => {
-                self.translate_expr(expr, cur_module, header).instr + vec![Instr::Pop].into()
+                let expr = self.translate_expr(expr, cur_module, header);
+                let clean_instr = if expr.ty != TypeInfo::Unit { vec![Instr::Pop].into() } else { vec![].into() };
+                expr.instr + clean_instr
             }
             AstStmtNode::RetStmt(expr) => match expr {
                 Some(expr) => {
@@ -172,6 +180,18 @@ impl CodeGen {
         }
     }
 
+
+    fn convert_internal_function(&self, func: ProgramVmFnElement) -> AutoScriptFunction {
+        let param_size = func.header.param_size();
+        AutoScriptFunction {
+            name: func.header.name.clone(),
+            signature: func.header.signature(),
+            local_var_size: param_size,
+            arg_num: param_size,
+            code: func.block,
+        }
+    }
+
     fn translate_module(&mut self, name: &str, output: &mut AutoScriptPrototype) -> Result<(), ()> {
         let src_module = self.modules.get(name).unwrap().clone();
         for element in src_module.function {
@@ -182,7 +202,7 @@ impl CodeGen {
         }
         for element in src_module.vm_function {
             for func in element.1 {
-                output.insert_vm_function(func.header.signature(), func.block);
+                output.insert_function_prototype(func.header.signature(), self.convert_internal_function(func));
             }
         }
 
@@ -436,11 +456,11 @@ impl CodeGen {
                 Vec::new().into()
             };
 
-            let call_instr = match &fn_header.origin {
-                FunctionOrigin::Source => Instr::Call(fn_header.signature()),
-                FunctionOrigin::VM => Instr::CallVM(fn_header.signature()),
-                FunctionOrigin::FFI => todo!(),
-            };
+            // let call_instr = match &fn_header.origin {
+            //     FunctionOrigin::Source => Instr::Call(fn_header.signature()),
+            //     FunctionOrigin::FFI => Instr::Call(fn_header.signature()),
+            // };
+            let call_instr = Instr::Call(fn_header.signature());
 
             GenInfo::new(
                 before_instr + vec![call_instr].into(),

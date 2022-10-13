@@ -1,5 +1,6 @@
 use super::slot::Slot;
 
+#[derive(Debug)]
 pub struct ConstantPool(Vec<Slot>);
 
 impl ConstantPool {

@@ -2,9 +2,51 @@ use std::fmt::{Display, Formatter};
 use std::ops;
 use std::rc::Rc;
 
+use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::slot::Slot;
-use crate::vm::thread::Frame;
-use crate::vm::vm::AutoScriptFunction;
+use crate::vm::thread::{Frame, Thread};
+use crate::vm::vm::AutoScriptFunctionEvaluator;
+
+#[derive(Debug)]
+pub struct AutoScriptInstrFunction {
+    instr: Rc<Instructions>,
+}
+
+impl AutoScriptInstrFunction {
+    pub fn new(instr: Rc<Instructions>) -> Self {
+        Self {
+            instr
+        }
+    }
+}
+
+impl AutoScriptFunctionEvaluator for AutoScriptInstrFunction {
+    fn exec(&self, frame: &mut Frame) {
+        let mut instr_reader = InstrReader::new(Rc::clone(&self.instr));
+
+        loop {
+            let pc = frame.next_pc;
+            unsafe {
+                frame.thread.as_mut().unwrap()
+            }.set_pc(pc);
+
+            instr_reader.set_pc(pc);
+            let instr = instr_reader.read_instr();
+            frame.next_pc = instr_reader.pc();
+
+            if !instr.execute(frame) {
+                break;
+            }
+
+            if unsafe {
+                frame.thread.as_ref().unwrap()
+            }.frame_stack.is_empty() {
+                break;
+            }
+        }
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub enum Instr {
@@ -46,24 +88,45 @@ pub enum Instr {
     NPush,
 
     Call(String),
-    CallVM(String),
 
     Dup,
     Store(usize),
     Load(usize),
     Pop,
-    ReturnValue, // pop a value from top frame, and then pop a frame, push the value to next
-    Return, // pop a stack frame, do thing
+    ReturnValue,
+    // pop a value from top frame, and then pop a frame, push the value to next
+    Return,
+    // pop a stack frame, do thing
     Nop, // do nothing
 
     CPush(usize), // push from constant pool
 }
 
 impl Instr {
-    pub fn execute(&self, frame: &mut Frame) {
+    /// Return a bool value,
+    /// When it's true, the top frame doesn't changed
+    /// Or it's false, the top frame has been pop, current thread should stop execute
+    ///
+    pub fn execute(&self, frame: &mut Frame) -> bool {
         unsafe {
             if frame.thread.as_ref().unwrap().vm.as_ref().unwrap().args.instr {
-                eprintln!("{}:\t{}", frame.thread.as_ref().unwrap().pc(), self);
+                let signature = &frame.function.signature;
+                let stack_depth = frame.thread.as_ref().unwrap().frame_stack.len();
+                let frame_ptr:*const Frame  = frame as *const Frame;
+                let thread_ptr: *const Thread = frame.thread;
+                eprintln!("thread {:?} of frame {:?}({}) {}:[pc{}]\t{}",thread_ptr ,frame_ptr ,stack_depth, signature, frame.thread.as_ref().unwrap().pc(), self);
+            }
+        }
+
+        unsafe{
+            let thread = frame.thread.as_ref().unwrap();
+            // eprintln!("Thread data: {:?}", thread);
+            eprintln!("All frame before:");
+            for i in thread.frame_stack.iter(){
+                eprintln!("- {:?}", i as *const Frame);
+                for slot in i.operand_stack.iter() {
+                    eprintln!("\t > {:?}", slot);
+                }
             }
         }
 
@@ -154,42 +217,38 @@ impl Instr {
                 let slot = frame.local_vars.get(*idx).clone();
                 frame.operand_stack.push(slot);
             }
-            Instr::CallVM(fn_signature) => {
-                unsafe {
-                    let thread = frame.thread.as_mut().unwrap();
-                    let vm = thread.vm.as_ref().unwrap();
-                    let func = vm.prototypes.get_function_prototype(fn_signature).unwrap();
-                    let args_num = &func.arg_num;
-                    let mut args:Vec<Slot> = Vec::new();
-                    frame.operand_stack[frame.operand_stack.len() - args_num .. frame.operand_stack.len()].clone_into(&mut args);
-                    for _ in 0.. *args_num {
-                        frame.operand_stack.pop();
-                    }
-                    let return_value = func.exec(frame);
-                    frame.operand_stack.push(return_value.unwrap_or(Slot::Unit))
-                }
-            }
             Instr::Call(fn_signature) => {
-                unsafe {
-                    let thread = frame.thread.as_mut().unwrap();
-                    let vm = thread.vm.as_ref().unwrap();
-                    //TODO
-                    let fn_prototype = vm.prototypes.get_function_prototype(fn_signature).unwrap();
-                    let new_frame = thread.push_new_frame(fn_prototype.local_var_size, Rc::clone(&fn_prototype));
-                    for i in 0..fn_prototype.arg_num {
-                        let idx = fn_prototype.arg_num - i - 1;
-                        let slot = frame.operand_stack.pop().unwrap();
-                        new_frame.local_vars.set(idx, slot)
-                    }
+                let thread = unsafe {
+                    frame.thread.as_mut()
+                }.unwrap();
+                let fn_prototype = unsafe {
+                    thread.vm.as_ref().unwrap().prototypes.get_function_prototype(fn_signature)
+                }.unwrap();
+
+                let new_frame: &mut Frame = thread.push_new_frame(fn_prototype.local_var_size, Rc::clone(&fn_prototype));
+
+                for i in 0..fn_prototype.arg_num {
+                    let idx = fn_prototype.arg_num - i - 1;
+                    let slot = frame.operand_stack.pop().unwrap();
+                    new_frame.local_vars.set(idx, slot)
                 }
+
+                fn_prototype.exec(new_frame);
             }
             Instr::ReturnValue => {
-                unsafe {
-                    let thread = frame.thread.as_mut().unwrap();
-                    let value = frame.operand_stack.pop().unwrap();
-                    thread.pop_frame();
-                    thread.current_frame_mut().operand_stack.push(value);
+                let thread = unsafe {
+                    frame.thread.as_mut()
+                }.unwrap();
+
+                let value = frame.operand_stack.pop().unwrap();
+
+                thread.pop_frame();
+
+                unsafe{
+                    eprintln!("Return value to frame {:?} in thread {:?}", thread.current_frame_mut() as *const Frame, frame.thread);
                 }
+
+                thread.current_frame_mut().operand_stack.push(value); //TODO: here a bug exists, frame or thread have been copied
             }
             Instr::Return => {
                 unsafe {
@@ -251,7 +310,7 @@ impl Instr {
             }
             Instr::JumpIf(offset) => {
                 let cond = frame.operand_stack.pop().unwrap().get_bool();
-                if cond{
+                if cond {
                     frame.next_pc += offset
                 }
             }
@@ -265,14 +324,13 @@ impl Instr {
                 frame.operand_stack.pop().unwrap();
             }
             Instr::NPush => {
-
                 frame.operand_stack.push(Slot::Unit);
             }
             Instr::Dup => {
                 let slot = frame.operand_stack.last().unwrap().clone();
                 frame.operand_stack.push(slot);
             }
-            Instr::Nop => {},
+            Instr::Nop => {}
             Instr::CPush(idx) => {
                 let vm = unsafe {
                     frame.thread.as_ref().unwrap().vm.as_ref().unwrap()
@@ -280,7 +338,18 @@ impl Instr {
                 let slot = vm.prototypes.get_constant(*idx).unwrap();
                 frame.operand_stack.push(slot)
             }
+        };
 
+        // unsafe{
+        //     let thread = frame.thread.as_ref().unwrap();
+        //     eprintln!("All frame after:");
+        //     for i in thread.frame_stack.iter(){
+        //         eprintln!("- {:?}", i as *const Frame);
+        //     }
+        // }
+        match self {
+            Instr::Return | Instr::ReturnValue => false,
+            _ => true
         }
     }
 }
@@ -364,7 +433,6 @@ impl Display for Instr {
             Instr::Load(idx) => write!(f, "load {}", idx),
             Instr::Pop => write!(f, "pop"),
             Instr::NPush => write!(f, "npush"),
-            Instr::CallVM(signature) => write!(f, "call_vm {}", signature),
             Instr::Dup => write!(f, "dup"),
             Instr::CPush(i) => write!(f, "const_push {}", i)
         }

@@ -1,67 +1,60 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 use crate::frontend::ast::basic::TypeInfo;
 use crate::frontend::ast::func::{FunctionBasicInfo, FunctionMatcher, FunctionOrigin};
 use crate::frontend::module_man::ProgramModuleDecl;
-use crate::vm::builtin::builtin_func::FnPrint;
+use crate::vm::builtin::builtin_func::{FnAssert, FnPrint};
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
+use crate::vm::vm::AutoScriptFunctionEvaluator;
 
 pub mod builtin_class;
 pub mod builtin_func;
 
-pub trait FunctionRustBinding: Debug + FunctionRustBindingDynClone {
+trait AsEvaluator  {
+    fn as_evaluator(self)-> Box<dyn AutoScriptFunctionEvaluator>;
+}
+
+
+// impl AsEvaluator for Box<dyn FunctionRustBinding> {
+//     fn as_evaluator(self) -> Box<dyn AutoScriptFunctionEvaluator> {
+//         (*self).as_evaluator()
+//     }
+// }
+
+impl <T> AsEvaluator for  Box<T> where T: FunctionRustBinding +  Sized + 'static {
+    fn as_evaluator(self) -> Box<dyn AutoScriptFunctionEvaluator> {
+        self
+    }
+}
+
+impl <T> AutoScriptFunctionEvaluator for T where T:FunctionRustBinding {
+    fn exec(&self, frame: &mut Frame) {
+        let mut return_value = None;
+        self.execute(frame, &mut return_value);
+        let thread = unsafe { frame.thread.as_mut() }.unwrap();
+        thread.frame_stack.pop();
+
+        if let Some(slot) = return_value {
+            thread.current_frame_mut().operand_stack.push(slot);
+        }
+    }
+}
+
+pub trait FunctionRustBinding: Debug  + AutoScriptFunctionEvaluator {
     fn get_name(&self) -> &'static str;
     fn get_args(&self) -> &'static [(&'static str, TypeInfo)];
     fn get_ret_type(&self) -> TypeInfo;
-    fn execute(&self, args: &[Slot], frame: &mut Frame) -> Option<Slot>;
+
+    fn execute(&self, frame: &mut Frame, ret: &mut Option<Slot>);
 }
 
-pub trait FunctionRustBindingDynClone {
-    fn clone_box(&self) -> Box<dyn FunctionRustBinding>;
-}
-
-impl<T> FunctionRustBindingDynClone for T where T: 'static + FunctionRustBinding + Clone,
-{
-    fn clone_box(&self) -> Box<dyn FunctionRustBinding> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn FunctionRustBinding> {
-    fn clone(&self) -> Box<dyn FunctionRustBinding> {
-        self.clone_box()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FnAssert;
-
-impl FunctionRustBinding for FnAssert {
-    fn get_name(&self) -> &'static str {
-        "assert"
-    }
-
-    fn get_args(&self) -> &'static [(&'static str, TypeInfo)] {
-        &[("expr", TypeInfo::Bool)]
-    }
-
-    fn get_ret_type(&self) -> TypeInfo {
-        TypeInfo::Unit
-    }
-
-    fn execute(&self, args: &[Slot], _: &mut Frame) -> Option<Slot> {
-        assert!(args.first().unwrap().get_bool());
-        None
-    }
-}
-
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProgramVmFnElement {
     pub header: FunctionBasicInfo,
-    pub block: Box<dyn FunctionRustBinding>,
+    pub block: Rc<dyn AutoScriptFunctionEvaluator>,
 }
 
 impl FunctionMatcher for ProgramVmFnElement {
@@ -82,7 +75,7 @@ impl VMBuiltinRegister{
     }
 }
 
-fn register_fn(fn_map: &mut HashMap<String, Vec<ProgramVmFnElement>>, fn_code: Box<dyn FunctionRustBinding>) {
+fn register_fn<T>(fn_map: &mut HashMap<String, Vec<ProgramVmFnElement>>, fn_code: Box<T>) where T:Sized + FunctionRustBinding + 'static {
     let name = (&fn_code.get_name()).to_string();
     let fn_prototype = ProgramVmFnElement {
         header: FunctionBasicInfo {
@@ -90,9 +83,9 @@ fn register_fn(fn_map: &mut HashMap<String, Vec<ProgramVmFnElement>>, fn_code: B
             module: Some(String::from("prelude")),
             param: Some(fn_code.get_args().into_iter().map(|(fst, snd)| (fst.to_string(), snd.clone())).collect()),
             ret: None,
-            origin: FunctionOrigin::VM
+            origin: FunctionOrigin::FFI
         },
-        block: fn_code,
+        block: Rc::from(fn_code.as_evaluator()),
     };
     fn_map.insert(name, vec![fn_prototype]);
 }

@@ -20,7 +20,7 @@ impl AutoScriptInstrReader for InstrReader{
         instr.unwrap()
     }
     fn set_pc(&mut self, pc: i32) {
-        self.pc += pc;
+        self.pc = pc;
     }
 
     fn pc(&self) -> i32 {

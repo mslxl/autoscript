@@ -34,14 +34,13 @@ fn main() {
     loader.add_file(&file).unwrap();
     let mut modules = loader.unwrap();
 
-
     VMBuiltinRegister::register_prelude(&mut modules);
 
     let mut codegen = CodeGen::new(modules);
-    let modules = codegen.translate_modules();
+    let modules_prototype = codegen.translate_modules();
     let main_module_name = file.file_stem().unwrap().to_str().unwrap();
 
-    let mut vm = AutoScriptVM::new(modules, vm_args);
+    let mut vm = AutoScriptVM::new(modules_prototype, vm_args);
 
     let main_function_name = format!("V@{}.main(V", main_module_name);
 
