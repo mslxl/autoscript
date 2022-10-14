@@ -9,7 +9,7 @@ use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 
 use crate::frontend::ast::basic::{AccessedIdent, AstExprNode, AstStmtNode, Op, StmtBlock, TypeInfo, UnaryOp};
 use crate::frontend::ast::element::{AstProgramFunctionImplElement, ProgramClassElement, ProgramElement};
-use crate::frontend::ast::func::{FunctionBasicInfo, FunctionOrigin};
+use crate::frontend::ast::func::FunctionBasicInfo;
 use crate::frontend::tok::{Tok, Tokens};
 
 macro_rules! tag_token (
@@ -347,7 +347,6 @@ fn parse_func(input: Tokens) -> IResult<Tokens, ProgramElement> {
                 None => None,
                 Some((_, id)) => Some(TypeInfo::from(id.as_str())),
             },
-            origin: FunctionOrigin::Source,
         },
         block,
     });

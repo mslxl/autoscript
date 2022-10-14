@@ -1,16 +1,15 @@
 use std::fmt::Debug;
 
 use crate::frontend::ast::basic::TypeInfo;
-use crate::vm::builtin::FunctionRustBinding;
+use crate::vm::builtin::AutoScriptRustVMFunctionBinding;
 use crate::vm::slot::Slot;
 use crate::vm::thread::Frame;
-use crate::vm::vm::AutoScriptFunctionEvaluator;
 
 #[derive(Debug, Clone)]
 pub(crate) struct FnPrint;
 
 
-impl FunctionRustBinding for FnPrint{
+impl AutoScriptRustVMFunctionBinding for FnPrint{
     fn get_name(&self) -> &'static str {
         "print"
     }
@@ -33,7 +32,7 @@ impl FunctionRustBinding for FnPrint{
 pub(crate) struct FnAssert;
 
 
-impl FunctionRustBinding for FnAssert {
+impl AutoScriptRustVMFunctionBinding for FnAssert {
     fn get_name(&self) -> &'static str {
         "assert"
     }

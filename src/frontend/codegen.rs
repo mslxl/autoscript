@@ -1,21 +1,17 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use nom::Parser;
-
 use crate::frontend::ast::basic::{AstExprNode, AstStmtNode, Op, TypeInfo, UnaryOp};
 use crate::frontend::ast::element::AstProgramFunctionImplElement;
-use crate::frontend::ast::func::{FunctionBasicInfo, FunctionOrigin};
+use crate::frontend::ast::func::FunctionBasicInfo;
 use crate::frontend::gen_info::{Env, GenInfo, VarInfo};
 use crate::frontend::module_man::ProgramModuleDecl;
 use crate::vm::builtin::builtin_class::ObjStr;
 use crate::vm::builtin::ProgramVmFnElement;
-use crate::vm::instr::{AutoScriptInstrFunction, Instr, Instructions};
-use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
+use crate::vm::instr::{Instr, Instructions};
 use crate::vm::mem::Obj;
 use crate::vm::slot::Slot;
-use crate::vm::thread::Frame;
-use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionEvaluator, AutoScriptPrototype};
+use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionCode, AutoScriptPrototype};
 
 use super::gen_info::ConstantPoolBuilder;
 
@@ -84,7 +80,7 @@ impl CodeGen {
             signature: program.header.signature(),
             local_var_size: table_size,
             arg_num,
-            code: Rc::new(AutoScriptInstrFunction::new(Rc::new(instr))),
+            code: AutoScriptFunctionCode::Instr(Rc::new(instr))
         }
     }
 
@@ -188,7 +184,7 @@ impl CodeGen {
             signature: func.header.signature(),
             local_var_size: param_size,
             arg_num: param_size,
-            code: func.block,
+            code: AutoScriptFunctionCode::Binding(func.block),
         }
     }
 

@@ -1,11 +1,4 @@
 use crate::frontend::ast::basic::TypeInfo;
-use crate::vm::builtin::FunctionRustBinding;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum FunctionOrigin {
-    Source,
-    FFI,
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionBasicInfo {
@@ -13,7 +6,6 @@ pub struct FunctionBasicInfo {
     pub module: Option<String>,
     pub param: Option<Vec<(String, TypeInfo)>>,
     pub ret: Option<TypeInfo>,
-    pub origin: FunctionOrigin,
 }
 
 pub trait FunctionMatcher {
@@ -77,12 +69,8 @@ impl FunctionBasicInfo {
             None => String::from("V")
         };
 
-        let origin_flag = match self.origin {
-            FunctionOrigin::Source => "",
-            FunctionOrigin::FFI => "#"
-        };
 
-        format!("{}{}@{}.{}({}", origin_flag, ret, module_name, name, param)
+        format!("{}@{}.{}({}", ret, module_name, name, param)
     }
 }
 

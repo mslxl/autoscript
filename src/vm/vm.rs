@@ -3,11 +3,11 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::vm::builtin::FunctionRustBinding;
+use crate::vm::builtin::AutoScriptRustVMFunctionBinding;
 use crate::vm::instr::Instructions;
 use crate::vm::mem::Mem;
 use crate::vm::slot::Slot;
-use crate::vm::thread::{Frame, Thread};
+use crate::vm::thread::Thread;
 use crate::VmArgs;
 
 use super::const_pool::ConstantPool;
@@ -42,23 +42,20 @@ impl AutoScriptPrototype {
     }
 }
 
-pub trait AutoScriptFunctionEvaluator : Debug{
-    fn exec(&self, frame: &mut Frame);
+#[derive(Debug)]
+pub enum AutoScriptFunctionCode{
+    Binding(Rc<dyn AutoScriptRustVMFunctionBinding>),
+    Instr(Rc<Instructions>)
 }
+
+
 #[derive(Debug)]
 pub struct AutoScriptFunction {
     pub name: String,
     pub signature: String,
     pub local_var_size: usize,
     pub arg_num: usize,
-    pub code: Rc<dyn AutoScriptFunctionEvaluator>,
-}
-
-impl AutoScriptFunctionEvaluator for AutoScriptFunction {
-    #[inline]
-    fn exec(&self, frame: &mut Frame) {
-        self.code.exec(frame)
-    }
+    pub code: AutoScriptFunctionCode,
 }
 
 

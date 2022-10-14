@@ -1,0 +1,14 @@
+fn main(){
+    val value = f1(100);
+    print("result:");
+    print(value);
+    return;
+}
+
+fn f1(depth: int)->bool{
+   return if depth == 0 {
+       true;
+   } else {
+       f1(depth-1);
+   }
+}

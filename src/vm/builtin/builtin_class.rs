@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::vm::mem::ObjCore;
 
 #[derive(Debug)]

@@ -2,51 +2,8 @@ use std::fmt::{Display, Formatter};
 use std::ops;
 use std::rc::Rc;
 
-use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::slot::Slot;
 use crate::vm::thread::{Frame, Thread};
-use crate::vm::vm::AutoScriptFunctionEvaluator;
-
-#[derive(Debug)]
-pub struct AutoScriptInstrFunction {
-    instr: Rc<Instructions>,
-}
-
-impl AutoScriptInstrFunction {
-    pub fn new(instr: Rc<Instructions>) -> Self {
-        Self {
-            instr
-        }
-    }
-}
-
-impl AutoScriptFunctionEvaluator for AutoScriptInstrFunction {
-    fn exec(&self, frame: &mut Frame) {
-        let mut instr_reader = InstrReader::new(Rc::clone(&self.instr));
-
-        loop {
-            let pc = frame.next_pc;
-            unsafe {
-                frame.thread.as_mut().unwrap()
-            }.set_pc(pc);
-
-            instr_reader.set_pc(pc);
-            let instr = instr_reader.read_instr();
-            frame.next_pc = instr_reader.pc();
-
-            if !instr.execute(frame) {
-                break;
-            }
-
-            if unsafe {
-                frame.thread.as_ref().unwrap()
-            }.frame_stack.is_empty() {
-                break;
-            }
-        }
-    }
-}
-
 
 #[derive(Clone, Debug)]
 pub enum Instr {
@@ -103,10 +60,7 @@ pub enum Instr {
 }
 
 impl Instr {
-    /// Return a bool value,
-    /// When it's true, the top frame doesn't changed
-    /// Or it's false, the top frame has been pop, current thread should stop execute
-    ///
+    /// Execute a instr
     pub fn execute(&self, frame: &mut Frame) -> bool {
         unsafe {
             if frame.thread.as_ref().unwrap().vm.as_ref().unwrap().args.instr {
@@ -115,18 +69,6 @@ impl Instr {
                 let frame_ptr:*const Frame  = frame as *const Frame;
                 let thread_ptr: *const Thread = frame.thread;
                 eprintln!("thread {:?} of frame {:?}({}) {}:[pc{}]\t{}",thread_ptr ,frame_ptr ,stack_depth, signature, frame.thread.as_ref().unwrap().pc(), self);
-            }
-        }
-
-        unsafe{
-            let thread = frame.thread.as_ref().unwrap();
-            // eprintln!("Thread data: {:?}", thread);
-            eprintln!("All frame before:");
-            for i in thread.frame_stack.iter(){
-                eprintln!("- {:?}", i as *const Frame);
-                for slot in i.operand_stack.iter() {
-                    eprintln!("\t > {:?}", slot);
-                }
             }
         }
 
@@ -221,6 +163,7 @@ impl Instr {
                 let thread = unsafe {
                     frame.thread.as_mut()
                 }.unwrap();
+
                 let fn_prototype = unsafe {
                     thread.vm.as_ref().unwrap().prototypes.get_function_prototype(fn_signature)
                 }.unwrap();
@@ -232,8 +175,6 @@ impl Instr {
                     let slot = frame.operand_stack.pop().unwrap();
                     new_frame.local_vars.set(idx, slot)
                 }
-
-                fn_prototype.exec(new_frame);
             }
             Instr::ReturnValue => {
                 let thread = unsafe {
@@ -244,11 +185,7 @@ impl Instr {
 
                 thread.pop_frame();
 
-                unsafe{
-                    eprintln!("Return value to frame {:?} in thread {:?}", thread.current_frame_mut() as *const Frame, frame.thread);
-                }
-
-                thread.current_frame_mut().operand_stack.push(value); //TODO: here a bug exists, frame or thread have been copied
+                thread.current_frame_mut().operand_stack.push(value);
             }
             Instr::Return => {
                 unsafe {

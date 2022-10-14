@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::vm::instr_reader::{AutoScriptInstrReader, InstrReader};
 use crate::vm::slot::Slot;
-use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionEvaluator, AutoScriptVM};
+use crate::vm::vm::{AutoScriptFunction, AutoScriptFunctionCode, AutoScriptVM};
 
 #[derive(Debug)]
 pub struct Thread {
@@ -62,17 +62,55 @@ impl Thread {
         self.frame_stack.last().unwrap()
     }
 
+
+    fn interpret(&mut self){
+        let mut instr_reader = if let AutoScriptFunctionCode::Instr(instr) = &self.current_frame().function.code {
+            InstrReader::new(Rc::clone(instr))
+        }else{
+            panic!("Interpreter could start from non-autoscript code")
+        };
+
+        loop {
+            let frame = self.current_frame();
+            let pc = frame.next_pc;
+            self.set_pc(pc);
+
+            let mut frame = self.current_frame_mut();
+            // decode
+            let function = Rc::clone(&frame.function);
+            match &function.code {
+                AutoScriptFunctionCode::Binding(binding) => {
+                    let mut return_value: Option<Slot> = None;
+                    binding.execute(frame, &mut return_value);
+                    if let Some(value) = return_value {
+                        self.pop_frame();
+                        self.current_frame_mut().operand_stack.push(value);
+                    }else{
+                        self.pop_frame();
+                    }
+                },
+                AutoScriptFunctionCode::Instr(instr) => {
+                    instr_reader.reset(Rc::clone(instr), pc);
+                    let instr = instr_reader.read_instr();
+                    frame.next_pc = instr_reader.pc();
+                    instr.execute(frame);
+                }
+            }
+
+            if self.frame_stack.is_empty() {
+                break;
+            }
+        }
+    }
+
     pub fn start(&mut self, function_signature: &str) {
         let vm: &mut AutoScriptVM = unsafe { &mut *self.vm };
         let function = vm.prototypes.get_function_prototype(function_signature).unwrap();
         self.push_new_frame(function.local_var_size, Rc::clone(&function));
 
 
-        let frame = self.current_frame();
 
-        let start_function = Rc::clone(&frame.function);
-        let frame = self.current_frame_mut();
-        start_function.exec(frame);
+        self.interpret();
     }
 
     pub fn pc(&self) -> i32 {

@@ -36,7 +36,7 @@ fn main() {
 
     VMBuiltinRegister::register_prelude(&mut modules);
 
-    let mut codegen = CodeGen::new(modules);
+    let codegen = CodeGen::new(modules);
     let modules_prototype = codegen.translate_modules();
     let main_module_name = file.file_stem().unwrap().to_str().unwrap();
 
